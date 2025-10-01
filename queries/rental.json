@@ -12,6 +12,14 @@
     {
         "database": "rental",
         "collection": "cars",
+        "operation": "count",
+        "filter": {
+            "rental_id": "<int>"
+        }
+    },
+    {
+        "database": "rental",
+        "collection": "cars",
         "operation": "find",
         "filter": {
             "license_plate": "<license_plate>"

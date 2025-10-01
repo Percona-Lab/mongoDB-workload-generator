@@ -18,6 +18,14 @@
     {
         "database": "airline",
         "collection": "flights",
+        "operation": "count",
+        "filter": {
+            "flight_id": "<int>"
+        }
+    },
+    {
+        "database": "airline",
+        "collection": "flights",
         "operation": "find",
         "filter": {
             "flight_id": "<int>",
@@ -38,6 +46,7 @@
         "operation": "find",
         "filter": {
             "duration_minutes": {
+                "flight_id": "<int>",
                 "$lt": "<int>"
             }
         },

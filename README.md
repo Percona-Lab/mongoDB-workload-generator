@@ -18,11 +18,19 @@ Workload Generator for MongoDB relies on a few additional Python libraries that 
 - [joblib](https://joblib.readthedocs.io/en/stable/) – Enables parallel execution of tasks by leveraging multiple CPU cores.
 - [pymongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/) – Library for interacting with MongoDB using Python.
 
-To install these libraries, run the following command:
+
+Make sure you have Python 3.11 installed, then make it the default version (or use a virtual env)
 
 ```
-pip3 install faker joblib pymongo
+sudo dnf install python3.11 python3.11-pip -y
 ```
+
+Install the above libraries, run the following command:
+
+```
+pip3 install faker joblib pymongo motor
+```
+
 
 ## Configuration
 
@@ -212,66 +220,56 @@ You can obtain help and a list of all available parameters by running `./mongodb
 
 ```
 ./mongodbWorkload.py --help
-usage: mongodbWorkload.py [-h] [--collections COLLECTIONS] [--collection_definition [COLLECTION_DEFINITION]] [--recreate] [--runtime RUNTIME] [--batch_size BATCH_SIZE] [--threads THREADS]
-                          [--skip_update] [--skip_delete] [--skip_insert] [--skip_select] [--insert_ratio INSERT_RATIO] [--update_ratio UPDATE_RATIO] [--delete_ratio DELETE_RATIO]
-                          [--select_ratio SELECT_RATIO] [--report_interval REPORT_INTERVAL] [--optimized] [--cpu CPU] [--log [LOG]] [--custom_queries [CUSTOM_QUERIES]] [--debug]
+usage: mongodbWorkload.py [-h] [--runtime RUNTIME] [--threads THREADS] [--cpu CPU] [--custom_queries CUSTOM_QUERIES] [--collections COLLECTIONS] [--recreate] [--batch_size BATCH_SIZE]
+                          [--optimized] [--insert_ratio INSERT_RATIO] [--select_ratio SELECT_RATIO] [--update_ratio UPDATE_RATIO] [--delete_ratio DELETE_RATIO]
+                          [--report_interval REPORT_INTERVAL] [--log LOG] [--skip_insert] [--skip_select] [--skip_update] [--skip_delete] [--debug]
+                          [--collection_definition COLLECTION_DEFINITION]
 
 MongoDB Workload Generator
 
 options:
   -h, --help            show this help message and exit
+  --runtime RUNTIME     The total duration to run the workload (e.g., 60s, 5m).
+  --threads THREADS     Number of threads per process. (Total threads = threads * cpu)
+  --cpu CPU             Number of CPUs/processes to use.
+  --custom_queries CUSTOM_QUERIES
+                        Path to a JSON file with custom queries.
   --collections COLLECTIONS
-                        How many collections to create (default 1).
-  --collection_definition [COLLECTION_DEFINITION]
-                        (Optional) Name of a JSON file (from collections/), full path to a file, or a directory. If omitted, all JSON files from 'collections/' will be used.
-  --recreate            Recreate the collection before running the test.
-  --runtime RUNTIME     Duration of the load test, specify in seconds (e.g., 60s) or minutes (e.g., 5m) (default 60s).
+
+                        Number of collections to use.
+  --recreate            Drops the collections before starting the workload.
   --batch_size BATCH_SIZE
-                        Number of documents per batch insert (default 10).
-  --threads THREADS     Number of threads for simultaneous operations (default 4).
-  --skip_update         Skip update operations.
-  --skip_delete         Skip delete operations.
-  --skip_insert         Skip insert operations.
-  --skip_select         Skip select operations.
+                        Number of documents to insert in each batch.
+  --optimized           Use more efficient queries (i.e. 'find_one', 'update_one', 'delete_one').
   --insert_ratio INSERT_RATIO
-                        Percentage of insert operations (default 10).
-  --update_ratio UPDATE_RATIO
-                        Percentage of update operations (default 20).
-  --delete_ratio DELETE_RATIO
-                        Percentage of delete operations (default 10).
+                        Workload ratio for insert operations.
   --select_ratio SELECT_RATIO
-                        Percentage of select operations (default 60).
+                        Workload ratio for select operations.
+  --update_ratio UPDATE_RATIO
+                        Workload ratio for update operations.
+  --delete_ratio DELETE_RATIO
+                        Workload ratio for delete operations.
   --report_interval REPORT_INTERVAL
-                        Interval (in seconds) between workload stats output (default 5s).
-  --optimized           Run optimized workload only.
-  --cpu CPU             Number of CPUs to launch multiple instances in parallel (default 1).
-  --log [LOG]           Log filename and path (e.g., /tmp/report.log).
-  --custom_queries [CUSTOM_QUERIES]
-                        (Optional) Path to a single JSON query file or a directory containing multiple .json query files. If no path provided, all JSON files from 'queries/' will be used.
-  --debug               Enable debug logging to show queries and results.
+                        Frequency (in seconds) to report operations per second.
+  --log LOG             Path and filename for log output.
+  --skip_insert         Skip all insert operations.
+  --skip_select         Skip all select operations.
+  --skip_update         Skip all update operations.
+  --skip_delete         Skip all delete operations.
+  --debug               Enable debug mode to show detailed output.
+  --collection_definition COLLECTION_DEFINITION
+                        Path to a JSON file or directory with collection definitions.
 ```                        
 
 #### Basic Usage 
 
-Once you have configured the settings to match your environment, you can run the workload without specifying any parameters. This will utilize the default settings, providing a great way to familiarize yourself with the tool and review its output. The default setting is not optimized, this means it will randomly choose between optimized and innefective queries, so your performance may vary.
+Once you have configured the settings to match your environment, you can run the workload without specifying any parameters. This will utilize the default settings, providing a great way to familiarize yourself with the tool and review its output. The default setting is not optimized, this means it will randomly choose between optimized and innefective queries, so your performance may vary and this can be quite slow:
 
 ```
 ./mongodbWorkload.py
-2025-07-15 18:09:34 - INFO - Loaded 1 collection definition(s) from 'collections/rental.json'
-2025-07-15 18:09:34 - INFO - Loaded 1 collection definition(s) from 'collections/airline.json'
-2025-07-15 18:09:34 - INFO - Collection 'cars' created in DB 'rental'
-2025-07-15 18:09:34 - INFO - Sharding configured for 'rental.cars' with key {'rental_id': 'hashed'}
-2025-07-15 18:09:34 - INFO - Successfully created index: 'rental_id_1_car_type_1'
-2025-07-15 18:09:34 - INFO - Successfully created index: 'rental_id_1_pickup_location_1_dropoff_location_1'
-2025-07-15 18:09:34 - INFO - Successfully created index: 'rental_id_1_rental_date_1_return_date_1'
-2025-07-15 18:09:34 - INFO - Successfully created index: 'license_plate_1'
-2025-07-15 18:09:34 - INFO - Collection 'flights' created in DB 'airline'
-2025-07-15 18:09:34 - INFO - Sharding configured for 'airline.flights' with key {'flight_id': 'hashed'}
-2025-07-15 18:09:34 - INFO - Successfully created index: 'flight_id_1_equipment.plane_type_1'
-2025-07-15 18:09:34 - INFO - Successfully created index: 'flight_id_1_seats_available_1'
-2025-07-15 18:09:34 - INFO - Successfully created index: 'flight_id_1_duration_minutes_1_seats_available_1'
-2025-07-15 18:09:34 - INFO - Successfully created index: 'equipment.plane_type_1'
-2025-07-15 18:09:34 - INFO -
+2025-09-26 18:40:38 - INFO - Loaded 1 collection definition(s) from 'collections/rental.json'
+2025-09-26 18:40:38 - INFO - Loaded 1 collection definition(s) from 'collections/airline.json'
+2025-09-26 18:40:39 - INFO -
 
 Duration: 60 seconds
 CPUs: 1
@@ -289,42 +287,38 @@ Report logfile: None
                                                  Workload Started
 ===================================================================================================================
 
-2025-07-15 18:09:40 - INFO - AVG Operations last 5s (1 CPUs): 147.00 (SELECTS: 88.60, INSERTS: 13.60, UPDATES: 28.40, DELETES: 16.40)
-2025-07-15 18:09:45 - INFO - AVG Operations last 5s (1 CPUs): 133.80 (SELECTS: 77.80, INSERTS: 15.40, UPDATES: 29.00, DELETES: 11.60)
-2025-07-15 18:09:50 - INFO - AVG Operations last 5s (1 CPUs): 157.20 (SELECTS: 91.40, INSERTS: 15.20, UPDATES: 32.60, DELETES: 18.00)
-2025-07-15 18:09:55 - INFO - AVG Operations last 5s (1 CPUs): 148.60 (SELECTS: 88.80, INSERTS: 15.80, UPDATES: 29.40, DELETES: 14.60)
-2025-07-15 18:10:00 - INFO - AVG Operations last 5s (1 CPUs): 133.60 (SELECTS: 76.00, INSERTS: 14.00, UPDATES: 29.80, DELETES: 13.80)
-2025-07-15 18:10:05 - INFO - AVG Operations last 5s (1 CPUs): 161.80 (SELECTS: 97.40, INSERTS: 13.00, UPDATES: 34.20, DELETES: 17.20)
-2025-07-15 18:10:10 - INFO - AVG Operations last 5s (1 CPUs): 155.00 (SELECTS: 96.40, INSERTS: 14.20, UPDATES: 32.00, DELETES: 12.40)
-2025-07-15 18:10:15 - INFO - AVG Operations last 5s (1 CPUs): 147.20 (SELECTS: 87.40, INSERTS: 15.40, UPDATES: 30.80, DELETES: 13.60)
-2025-07-15 18:10:20 - INFO - AVG Operations last 5s (1 CPUs): 145.20 (SELECTS: 90.00, INSERTS: 12.60, UPDATES: 30.20, DELETES: 12.40)
-2025-07-15 18:10:25 - INFO - AVG Operations last 5s (1 CPUs): 152.20 (SELECTS: 89.00, INSERTS: 15.40, UPDATES: 31.80, DELETES: 16.00)
-2025-07-15 18:10:30 - INFO - AVG Operations last 5s (1 CPUs): 135.20 (SELECTS: 78.80, INSERTS: 13.20, UPDATES: 30.00, DELETES: 13.20)
-2025-07-15 18:10:35 - INFO - AVG Operations last 5s (1 CPUs): 161.60 (SELECTS: 99.00, INSERTS: 13.80, UPDATES: 32.60, DELETES: 16.20)
-2025-07-15 18:10:40 - INFO - AVG Operations last 5s (1 CPUs): 161.60 (SELECTS: 99.00, INSERTS: 13.80, UPDATES: 32.60, DELETES: 16.20)
-2025-07-15 18:10:40 - INFO -
-===================================================================================================================
-                                                Workload Finished
-===================================================================================================================
-
-2025-07-15 18:10:40 - INFO -
+2025-09-26 18:40:44 - INFO - Workload warming up, waiting for first operations to complete...
+2025-09-26 18:40:49 - INFO - Throughput last 5s (1 CPUs): 79.00 ops/sec (SELECTS: 47.00, INSERTS: 9.00, UPDATES: 16.40, DELETES: 6.60)
+2025-09-26 18:40:54 - INFO - Throughput last 5s (1 CPUs): 82.60 ops/sec (SELECTS: 49.40, INSERTS: 9.00, UPDATES: 15.60, DELETES: 8.60)
+2025-09-26 18:40:59 - INFO - Throughput last 5s (1 CPUs): 82.00 ops/sec (SELECTS: 53.80, INSERTS: 8.20, UPDATES: 14.40, DELETES: 5.60)
+2025-09-26 18:41:04 - INFO - Throughput last 5s (1 CPUs): 81.60 ops/sec (SELECTS: 45.20, INSERTS: 9.20, UPDATES: 16.60, DELETES: 10.60)
+2025-09-26 18:41:09 - INFO - Throughput last 5s (1 CPUs): 80.80 ops/sec (SELECTS: 45.80, INSERTS: 11.20, UPDATES: 16.80, DELETES: 7.00)
+2025-09-26 18:41:14 - INFO - Throughput last 5s (1 CPUs): 79.80 ops/sec (SELECTS: 45.80, INSERTS: 9.20, UPDATES: 16.60, DELETES: 8.20)
+2025-09-26 18:41:19 - INFO - Throughput last 5s (1 CPUs): 79.20 ops/sec (SELECTS: 49.20, INSERTS: 6.60, UPDATES: 16.20, DELETES: 7.20)
+2025-09-26 18:41:24 - INFO - Throughput last 5s (1 CPUs): 76.00 ops/sec (SELECTS: 44.60, INSERTS: 8.60, UPDATES: 17.20, DELETES: 5.60)
+2025-09-26 18:41:29 - INFO - Throughput last 5s (1 CPUs): 78.00 ops/sec (SELECTS: 44.00, INSERTS: 8.80, UPDATES: 18.20, DELETES: 7.00)
+2025-09-26 18:41:34 - INFO - Throughput last 5s (1 CPUs): 79.60 ops/sec (SELECTS: 43.60, INSERTS: 9.80, UPDATES: 16.80, DELETES: 9.40)
+2025-09-26 18:41:39 - INFO - Throughput last 5s (1 CPUs): 78.20 ops/sec (SELECTS: 45.60, INSERTS: 10.00, UPDATES: 14.00, DELETES: 8.60)
+2025-09-26 18:41:44 - INFO - Throughput last 5s (1 CPUs): 72.00 ops/sec (SELECTS: 46.00, INSERTS: 6.60, UPDATES: 12.20, DELETES: 7.20)
+2025-09-26 18:41:44 - INFO -
 ====================================================================================================
 |                                         Collection Stats                                         |
 ====================================================================================================
 |       Database       |      Collection      |     Sharded      |      Size      |    Documents   |
 ====================================================================================================
-|        rental        |         cars         |       True       |    0.06 MB     |       155      |
-|       airline        |       flights        |       True       |    0.28 MB     |       120      |
+|        rental        |         cars         |       True       |    0.10 MB     |       290      |
+|       airline        |       flights        |       True       |    0.17 MB     |       54       |
 ====================================================================================================
 
-2025-07-15 18:10:40 - INFO -
+2025-09-26 18:41:44 - INFO -
 ===================================================================================================================
-                                             Combined Workload Stats
+                                            Combined Workload Stats
 ===================================================================================================================
-Workload Runtime: 1.10 minutes
-Total Operations: 8892 (SELECT: 5303, INSERT: 858, UPDATE: 1854, DELETE: 877)
-AVG Operations: 135.21 (SELECTS: 80.64, INSERTS: 13.05, UPDATES: 28.19, DELETES: 13.34)
-Total: (Documents Inserted: 8580 | Documents Found: 4375 | Documents Updated: 129381 | Documents Deleted: 8305)
+Specified Duration: 60.00 seconds
+Total Elapsed Time: 1.08 minutes
+Total Operations: 4744 (SELECT: 2800, INSERT: 531, UPDATE: 955, DELETE: 458)
+Overall Throughput: 72.88 ops/sec (SELECTS: 43.02, INSERTS: 8.16, UPDATES: 14.67, DELETES: 7.04)
+Total: (Documents Inserted: 5310 | Documents Found: 2581 | Documents Updated: 108106 | Documents Deleted: 5056)
 ===================================================================================================================
 ```
 
@@ -442,7 +436,7 @@ The parameters available and their use cases are shown below:
 
   - You have the ability to create your own queries, enabling the workload to run exactly the same queries as your application. In order to do this you just need to create your own JSON query definition files and add them to the `queries` folder.
 
-  - The tool comes with 2 query definition files that can be used when the configuration `--custom_queries` is provided. If you provide this option alone (without specifying a file name or path), the tool will automatically randomly generate queries based on all query definition files present in the `queries` folder.  
+  - The tool comes with 2 sample query definition files that can be used when the configuration `--custom_queries` is provided. If you provide this option alone (without specifying a file name or path), the tool will automatically randomly generate queries based on all query definition files present in the `queries` folder.  
 
   - The query definition files are in JSON format and 2 examples have been provided, so you can build your own custom queries to match your specific use case (make sure you follow the same syntax as provided in the examples).
 

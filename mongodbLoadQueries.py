@@ -1,249 +1,222 @@
-import random
 # This file generates dynamic queries for the workload. You can add new query formats to the appropriate function and they'll be randomly chosen
 # while the workload is running. 
 # The queries below have a mix of "optimized" and "ineffective" queries. The good queries always use the primary/shard key 
 # The slow queries do not use the primary/shard key (on purpose) in order to create workload that's not optimal
 
-# SELECT queries
-def select_queries(param_list, field_names, field_types):
+import random
+import json 
+import copy
+
+QUERY_TEMPLATE_CACHE = {}
+
+def _fill_template(template, value_map):
     """
-    Generate lists of optimized and ineffective select queries.
+    Recursively fills placeholders in a query template by working
+    directly with the dictionary, which is much safer than string replacement.
     """
-    optimized_queries = []
-    ineffective_queries = []
-    query_projections = []
+    # Create a deep copy to ensure the cached template is never modified
+    query = copy.deepcopy(template)
 
-    if not param_list or not field_names or len(param_list) != len(field_names) or len(field_types) != len(field_names):
-        return [], [], []
-
-    pk_value = param_list[0]
-    pk_field = field_names[0]
-
-    for i in range(1, len(param_list)):
-        field = field_names[i]
-        value = param_list[i]
-        bson_type = field_types[i]
-
-        # OPTIMIZED queries always include PK
-        base_query = {pk_field: pk_value}
+    # This is a helper function that will walk through the dictionary/list structure
+    def _substitute(obj):
+        if isinstance(obj, dict):
+            # If it's a dict, recurse into its values
+            for key, value in obj.items():
+                obj[key] = _substitute(value)
+        elif isinstance(obj, list):
+            # If it's a list, recurse into its items
+            for i, item in enumerate(obj):
+                obj[i] = _substitute(item)
+        elif isinstance(obj, str) and obj in value_map:
+            # This is our target: a string that is a key in our value_map
+            # We replace the placeholder string with the actual value.
+            return value_map[obj]
         
-        if bson_type in ["int", "long", "double", "decimal"]:
-            # Generate a high value to be used by gte lte queries:
-            increment = random.randint(1, 100000)  # Random int between 1 and 100000
-            high_value = value + increment
-            # Numeric range queries
-            optimized_queries.append({**base_query, field: value})
-            optimized_queries.append({**base_query, field: {"$gt": value}})
-            optimized_queries.append({**base_query, field: {"$lt": value}})
-            optimized_queries.append({**base_query, field: {"$gte": value, "$lte": high_value}})
+        # Return the object unchanged if it's not a placeholder
+        return obj
 
-            ineffective_queries.append({field: value})
-            ineffective_queries.append({field: {"$gt": value}})
-            ineffective_queries.append({field: {"$lt": value}})
-            ineffective_queries.append({field: {"$gte": value, "$lte": high_value}})
+    return _substitute(query)
+
+
+# SELECT queries
+def select_queries(field_names, field_types, pk_field):
+    """
+    Generates and caches lists of optimized and ineffective select query TEMPLATES
+    and their corresponding PROJECTION templates.
+    """
+    cache_key = f"select-{pk_field}-{'-'.join(field_names)}"
+    if cache_key in QUERY_TEMPLATE_CACHE:
+        return QUERY_TEMPLATE_CACHE[cache_key]
+
+    optimized_templates = []
+    ineffective_templates = []
+    projection_templates = []
+
+    # Base templates use placeholders that will be filled at runtime
+    optimized_base = {pk_field: "{pk_value}"}
+
+    for i in range(1, len(field_names)):
+        field = field_names[i]
+        bson_type = field_types[i]
+        # Generic placeholder for the value of the current field
+        value_placeholder = f"{{{field}_value}}"
+
+        if bson_type in ["int", "long", "double", "decimal"]:
+            # Templates for numeric range queries
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            optimized_templates.append({**optimized_base, field: {"$gt": value_placeholder}})
+            optimized_templates.append({**optimized_base, field: {"$lt": value_placeholder}})
+            optimized_templates.append({**optimized_base, field: {"$gte": value_placeholder, "$lte": f"{{{field}_high_value}}"}})
+
+            ineffective_templates.append({field: value_placeholder})
+            ineffective_templates.append({field: {"$gt": value_placeholder}})
+            ineffective_templates.append({field: {"$lt": value_placeholder}})
+            ineffective_templates.append({field: {"$gte": value_placeholder, "$lte": f"{{{field}_high_value}}"}})
 
         elif bson_type == "string":
-            optimized_queries.append({**base_query, field: value})
-            optimized_queries.append({**base_query, field: {"$regex": value}})
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            optimized_templates.append({**optimized_base, field: {"$regex": value_placeholder}})
             
-            ineffective_queries.append({field: value})
-            ineffective_queries.append({field: {"$regex": value}})
+            ineffective_templates.append({field: value_placeholder})
+            ineffective_templates.append({field: {"$regex": value_placeholder}})
 
         elif bson_type == "bool":
-            optimized_queries.append({**base_query, field: value})
-            ineffective_queries.append({field: value})
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            ineffective_templates.append({field: value_placeholder})
 
-        elif bson_type in ["date", "timestamp"]:
-            optimized_queries.append({**base_query, field: value})
-            ineffective_queries.append({field: value})
-
-        elif bson_type == "objectId":
-            optimized_queries.append({**base_query, field: value})
+        elif bson_type in ["date", "timestamp", "objectId"]:
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            ineffective_templates.append({field: value_placeholder})
 
         elif bson_type == "array":
-            optimized_queries.append({**base_query, field: {"$in": value}})
-            ineffective_queries.append({field: {"$in": value}})
+            optimized_templates.append({**optimized_base, field: {"$in": value_placeholder}})
+            ineffective_templates.append({field: {"$in": value_placeholder}})
+        
+        else: # Fallback for any other types
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            ineffective_templates.append({field: value_placeholder})
+        
+        # Create a projection template for each field combination
+        projection_templates.append({pk_field: 1, field: 1, "_id": 0})
 
-        else:
-            # Fallback to exact match
-            optimized_queries.append({**base_query, field: value})
-            ineffective_queries.append({field: value})
+    # Add base queries for just the primary key
+    optimized_templates.insert(0, {pk_field: "{pk_value}"})
+    ineffective_templates.insert(0, {pk_field: {"$exists": True}})
+    projection_templates.insert(0, {pk_field: 1, "_id": 0})
 
-        # projection for the field and pk
-        query_projections.append({pk_field: 1, field: 1, "_id": 0})
-
-    # Base queries
-    optimized_queries.insert(0, {pk_field: pk_value})
-    ineffective_queries.insert(0, {pk_field: {"$exists": True}})
-    query_projections.insert(0, {pk_field: 1, "_id": 0})
-
-    return optimized_queries, ineffective_queries, query_projections
+    # Store the tuple of lists in the cache
+    result = (optimized_templates, ineffective_templates, projection_templates)
+    QUERY_TEMPLATE_CACHE[cache_key] = result
+    return result
 
 # UPDATE queries
-def update_queries(field_names, values, field_types, primary_key, pk_value):
+def update_queries(field_names, field_types, primary_key, shard_keys):
     """
-    Generate lists of optimized and ineffective update queries.
-    Each query dict contains "filter" and "update" keys.
+    Generates and caches lists of optimized and ineffective update query TEMPLATES.
+    This version will NOT generate templates that modify shard key fields.
     """
-    optimized_updates = []
-    ineffective_updates = []
+    # The cache key is now more specific to be safe
+    cache_key = f"update-{primary_key}-{'-'.join(shard_keys)}-{'-'.join(field_names)}"
+    if cache_key in QUERY_TEMPLATE_CACHE:
+        return QUERY_TEMPLATE_CACHE[cache_key]
 
-    if not (field_names and values and field_types) or not (len(field_names) == len(values) == len(field_types)):
-        return [], []
+    optimized_templates = []
+    ineffective_templates = []
+
+    optimized_filter = {primary_key: "{pk_value}"}
+    ineffective_filter = {}
 
     for i in range(len(field_names)):
         field = field_names[i]
-        value = values[i]
         ftype = field_types[i]
 
-        if value is None:
+        # If the field is part of the shard key, skip it and do not create an update template.
+        if field in shard_keys:
             continue
 
-        updates_for_field = []
+        value_placeholder = f"{{{field}_value}}"
+        update_op_templates = []
 
         if ftype in ["int", "long", "double", "decimal"]:
-            updates_for_field.append({"$set": {field: value}})
-            increment = random.randint(1, 100)
-            updates_for_field.append({"$inc": {field: increment}})
-
-        elif ftype == "string":
-            updates_for_field.append({"$set": {field: value}})
-
+            update_op_templates.append({"$set": {field: value_placeholder}})
+            update_op_templates.append({"$inc": {field: f"{{{field}_increment}}"}})
         elif ftype == "bool":
-            if isinstance(value, bool):
-                updates_for_field.append({"$set": {field: not value}})
-                updates_for_field.append({"$set": {field: value}})
-            else:
-                updates_for_field.append({"$set": {field: bool(value)}})
-
+            update_op_templates.append({"$set": {field: value_placeholder}})
+            update_op_templates.append({"$set": {field: f"{{{field}_not_value}}"}})
+        elif ftype == "string":
+            update_op_templates.append({"$set": {field: value_placeholder}})
         elif ftype in ["date", "timestamp"]:
-            updates_for_field.append({"$set": {field: value}})
-
+            update_op_templates.append({"$set": {field: value_placeholder}})
         elif ftype == "array":
-            updates_for_field.append({"$set": {field: value}})
-            updates_for_field.append({"$push": {field: {"$each": value if isinstance(value, list) else [value]}}})
-
+            update_op_templates.append({"$set": {field: value_placeholder}})
+            update_op_templates.append({"$push": {field: {"$each": value_placeholder if isinstance(value_placeholder, list) else [value_placeholder]}}})
         elif ftype == "objectId":
-            updates_for_field.append({"$set": {field: value}})
-
+            update_op_templates.append({"$set": {field: value_placeholder}})
         else:
-            updates_for_field.append({"$set": {field: value}})
+            update_op_templates.append({"$set": {field: value_placeholder}})
 
-        # Build optimized and ineffective update queries with filters
-        for update_op in updates_for_field:
-            # Defensive: ensure update operators exist
-            if not any(k.startswith("$") for k in update_op.keys()):
-                update_op = {"$set": update_op}
+        for update_template in update_op_templates:
+            optimized_templates.append({"filter": optimized_filter, "update": update_template})
+            ineffective_templates.append({"filter": ineffective_filter, "update": update_template})
+    
+    result = (optimized_templates, ineffective_templates)
+    QUERY_TEMPLATE_CACHE[cache_key] = result
+    return result
 
-            optimized_updates.append({
-                "filter": {primary_key: pk_value},
-                "update": update_op
-            })
-
-            ineffective_updates.append({
-                "filter": {},  # No primary key filter
-                "update": update_op
-            })
-
-    return optimized_updates, ineffective_updates
-
-
-def delete_queries(param_list, field_names, field_types, primary_key_name, primary_key_value): # Added pk_name, pk_value
+# delete queries
+def delete_queries(field_names, field_types, pk_field):
     """
-    Generate optimized and ineffective delete queries.
-    Optimized queries always include the primary key.
-    Ineffective queries omit the primary key.
+    Generates and caches lists of optimized and ineffective delete query TEMPLATES.
     """
-    optimized_queries = []
-    ineffective_queries = []
+    cache_key = f"delete-{pk_field}-{'-'.join(field_names)}"
+    if cache_key in QUERY_TEMPLATE_CACHE:
+        return QUERY_TEMPLATE_CACHE[cache_key]
 
-    if not param_list or not field_names or not field_types or \
-       len(param_list) != len(field_names) or len(field_types) != len(field_names):
-        return [], []
+    optimized_templates = []
+    ineffective_templates = []
 
-    # The primary key and its value should be explicitly passed
-    # as they are the cornerstone for optimized deletes.
-    pk_field = primary_key_name
-    pk_value = primary_key_value
+    # Base template for optimized queries
+    optimized_base = {pk_field: "{pk_value}"}
 
-    # Always add a simple primary key only delete to optimized queries
-    optimized_queries.append({pk_field: pk_value})
-    # Add an empty filter for ineffective for delete_many
-    ineffective_queries.append({})
+    # Add the simplest templates first
+    optimized_templates.append({pk_field: "{pk_value}"})
+    ineffective_templates.append({})  # For a wide delete_many
 
-
-    # Iterate through other fields to create more specific queries
-    # We use field_names directly, param_list contains values in the same order
+    # Iterate through other fields to create more specific templates
     for i in range(len(field_names)):
         field = field_names[i]
-        value = param_list[i] # param_list has the values
         ftype = field_types[i]
+        value_placeholder = f"{{{field}_value}}"
 
-        # Skip the primary key field itself as it's handled above or by direct filters
         if field == pk_field:
             continue
 
-        # Base for optimized queries: always include the primary key
-        optimized_base_filter = {pk_field: pk_value}
-
         if ftype in ["int", "long", "double", "decimal"]:
-            # Optimized numeric exact and range deletes
-            optimized_queries.append({**optimized_base_filter, field: value})
-            optimized_queries.append({**optimized_base_filter, field: {"$gt": value}})
-            optimized_queries.append({**optimized_base_filter, field: {"$lt": value}})
-
-            # Ineffective numeric deletes (no primary key)
-            ineffective_queries.append({field: value})
-            ineffective_queries.append({field: {"$gt": value}})
-            ineffective_queries.append({field: {"$lt": value}})
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            optimized_templates.append({**optimized_base, field: {"$gt": value_placeholder}})
+            ineffective_templates.append({field: value_placeholder})
+            ineffective_templates.append({field: {"$gt": value_placeholder}})
 
         elif ftype == "string":
-            # Optimized string exact and regex deletes
-            optimized_queries.append({**optimized_base_filter, field: value})
-            optimized_queries.append({**optimized_base_filter, field: {"$regex": value}})
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            optimized_templates.append({**optimized_base, field: {"$regex": value_placeholder}})
+            ineffective_templates.append({field: value_placeholder})
+            ineffective_templates.append({field: {"$regex": value_placeholder}})
 
-            # Ineffective string deletes (no primary key)
-            ineffective_queries.append({field: value})
-            ineffective_queries.append({field: {"$regex": value}})
-
-        elif ftype == "bool":
-            # Optimized boolean exact match
-            optimized_queries.append({**optimized_base_filter, field: value})
-
-            # Ineffective boolean exact match
-            ineffective_queries.append({field: value})
-
-        elif ftype in ["date", "timestamp"]:
-            # Optimized date exact match
-            optimized_queries.append({**optimized_base_filter, field: value})
-
-            # Ineffective date exact match
-            ineffective_queries.append({field: value})
-
-        elif ftype == "objectId":
-            # Optimized ObjectId exact match
-            optimized_queries.append({**optimized_base_filter, field: value})
-
-            # Ineffective ObjectId exact match
-            ineffective_queries.append({field: value}) # Still want these for non-optimized runs
+        elif ftype in ["bool", "date", "timestamp", "objectId"]:
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            ineffective_templates.append({field: value_placeholder})
 
         elif ftype == "array":
-            # Optimized array deletes
-            if isinstance(value, list) and value: # Ensure value is a non-empty list
-                 optimized_queries.append({**optimized_base_filter, field: {"$in": value}})
-            else: # If not a list, treat as single item for $in
-                 optimized_queries.append({**optimized_base_filter, field: {"$in": [value]}})
+            optimized_templates.append({**optimized_base, field: {"$in": value_placeholder}})
+            ineffective_templates.append({field: {"$in": value_placeholder}})
 
-            # Ineffective array deletes
-            if isinstance(value, list) and value:
-                ineffective_queries.append({field: {"$in": value}})
-            else:
-                ineffective_queries.append({field: {"$in": [value]}})
-
-        else:
-            # Fallback exact match for other types
-            optimized_queries.append({**optimized_base_filter, field: value})
-            ineffective_queries.append({field: value})
-
-    return optimized_queries, ineffective_queries
+        else: # Fallback
+            optimized_templates.append({**optimized_base, field: value_placeholder})
+            ineffective_templates.append({field: value_placeholder})
+    
+    # Store the result in the cache
+    result = (optimized_templates, ineffective_templates)
+    QUERY_TEMPLATE_CACHE[cache_key] = result
+    return result
 

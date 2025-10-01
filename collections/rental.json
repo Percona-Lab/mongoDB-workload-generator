@@ -59,6 +59,18 @@
             {
                 "keys": {
                     "rental_id": 1,
+                    "price_usd": 1
+                }
+            },
+            {
+                "keys": {
+                    "rental_id": 1,
+                    "email": 1
+                }
+            },
+            {
+                "keys": {
+                    "rental_id": 1,
                     "pickup_location": 1,
                     "dropoff_location": 1
                 }

@@ -1,30 +1,27 @@
 #!/usr/bin/env python3
-import pymongo # type: ignore
+import motor.motor_asyncio as motor
 import logging
 import sys
 from urllib.parse import urlencode
-import threading
 import os
 import importlib.util
+import random
 
-# Use thread-local storage to ensure a separate client per worker process.
-local_data = threading.local()
+# This will hold the single, shared client instance for each process.
+# It's initialized to None.
+_client = None
 
 def _load_creds_explicitly():
     """
     Loads the dbconfig from a specific file path to avoid import issues.
     """
-    # Get the directory where this mongo_client.py file is located.
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Construct the full path to mongodbCreds.py.
     creds_path = os.path.join(current_dir, 'mongodbCreds.py')
 
     if not os.path.exists(creds_path):
         logging.fatal(f"FATAL: Could not find credentials file at {creds_path}")
         sys.exit(1)
 
-    # Use importlib to load the module from the specific path.
     spec = importlib.util.spec_from_file_location("mongodbCreds", creds_path)
     mongodb_creds = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mongodb_creds)
@@ -33,23 +30,22 @@ def _load_creds_explicitly():
 
 def _create_new_client():
     """
-    An internal function that builds the connection URI and returns a new client.
+    An internal function that builds the connection URI and returns a new async client.
     """
-    # Load credentials using the new explicit method.
     dbconfig = _load_creds_explicitly()
-
     port = dbconfig.get("port")
-    # If port is defined and non-empty, append it to each host; otherwise assume port is embedded in host string
+    selected_host = random.choice(dbconfig["hosts"])
     if port:
-        hosts = ",".join([f"{host}:{port}" for host in dbconfig["hosts"]])
+        # Use the single selected host
+        host_with_port = f"{selected_host}:{port}"
     else:
-        hosts = ",".join(dbconfig["hosts"])
-
+        # Assumes port is already in the hostname if the port field is empty
+        host_with_port = selected_host
 
     if dbconfig.get("username") and dbconfig.get("password"):
-        connection_uri = f"mongodb://{dbconfig['username']}:{dbconfig['password']}@{hosts}"
+        connection_uri = f"mongodb://{dbconfig['username']}:{dbconfig['password']}@{host_with_port}"
     else:
-        connection_uri = f"mongodb://{hosts}"
+        connection_uri = f"mongodb://{host_with_port}"
 
     conn_params = {
         key: str(value)
@@ -59,33 +55,39 @@ def _create_new_client():
     if conn_params:
         connection_uri += "/?" + urlencode(conn_params)
 
-    return pymongo.MongoClient(connection_uri)
+    pid = os.getpid()
+    logging.debug(f"Process {pid} is creating a new MongoClient.")
+    return motor.AsyncIOMotorClient(connection_uri)
 
-def init():
+async def init_async():
     """
-    Performs a one-time connection check from the main process.
+    Initializes the global async MongoDB client for the current process.
     """
-    try:
-        client = _create_new_client()
-        client.admin.command('ping')
-        logging.debug("MongoDB connection credentials appear to be valid.") 
-    except Exception as e:
-        logging.fatal(f"Unable to connect to MongoDB. Please check your config.\nError: {e}")
-        sys.exit(1)
+    global _client
+    if _client is None:
+        try:
+            _client = _create_new_client()
+            # The hello command is cheap and does not require auth.
+            await _client.admin.command('hello')
+            logging.debug("MongoDB connection initialized successfully.") 
+        except Exception as e:
+            logging.fatal(f"Unable to connect to MongoDB. Please check your config.\nError: {e}")
+            _client = None
+            sys.exit(1)
 
 def get_client():
     """
-    Returns a process-safe MongoClient instance.
+    Returns the initialized global client instance for the current process.
+    Assumes init_async() has already been called.
     """
-    if not hasattr(local_data, "client"):
-        pid = os.getpid()
-        logging.debug(f"Process {pid} is creating a new MongoClient.")
-        local_data.client = _create_new_client()
-    
-    return local_data.client
+    return _client
 
-def get_db():
+async def close_client_async():
     """
-    Returns a specific database handle from the process-local client.
+    Closes the global client connection and resets the variable.
     """
-    return get_client()["config"]
+    global _client
+    if _client:
+        _client.close()
+        _client = None
+        logging.debug("MongoDB connection closed.")

@@ -1,0 +1,10 @@
+[
+    {
+        "database": "airline",
+        "collection": "flights",
+        "operation": "count",
+        "filter": {
+            "flight_id": "<int>"
+        }
+    }
+]

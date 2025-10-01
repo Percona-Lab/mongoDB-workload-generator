@@ -23,6 +23,11 @@ class CustomProvider(BaseProvider):
         "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
     ]
 
+    def plane_type(self):
+        return random.choice([
+            "Airbus A320", "Boeing 737", "CRJ 1000", "Embraer E190", "Dash 8-400", "ATR-72", "ERJ-145"
+        ])
+
     def state_abbr(self):
         return random.choice(self.us_states)
 
