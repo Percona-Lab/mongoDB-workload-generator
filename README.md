@@ -15,9 +15,8 @@ The tool is optimized to utilize as many CPU cores as desired on the host system
 Workload Generator for MongoDB relies on a few additional Python libraries that are not installed by default. To ensure proper functionality, please install the following dependencies:
 
 - [faker](https://pypi.org/project/Faker/) – Used to generate random fictional data, ideal for bootstrapping databases, stress testing, and creating randomized datasets.
-- [joblib](https://joblib.readthedocs.io/en/stable/) – Enables parallel execution of tasks by leveraging multiple CPU cores.
 - [pymongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/current/) – Library for interacting with MongoDB using Python.
-
+- [motor](https://motor.readthedocs.io/en/stable/) - Motor: Asynchronous Python driver for MongoDB
 
 Make sure you have Python 3.11 installed, then make it the default version (or use a virtual env)
 
@@ -28,7 +27,7 @@ sudo dnf install python3.11 python3.11-pip -y
 Install the above libraries, run the following command:
 
 ```
-pip3 install faker joblib pymongo motor
+pip3 install faker pymongo motor
 ```
 
 
