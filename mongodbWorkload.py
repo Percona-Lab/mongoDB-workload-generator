@@ -209,7 +209,7 @@ def workload_summary(workload_output,elapsed_time, specified_duration_str):
         total_stats["docs_selected"] += stats["docs_selected"]
         total_stats["docs_updated"] += stats["docs_updated"]
         total_stats["docs_deleted"] += stats["docs_deleted"]
-    
+
     table_width = 115
     if elapsed_time < 60:
         runtime = f"{elapsed_time:.2f} seconds"
@@ -231,7 +231,7 @@ def workload_summary(workload_output,elapsed_time, specified_duration_str):
 
 ##################################################
 # Get collection summary and provide the output
-##################################################  
+##################################################
 def collection_summary(collection_output):
     unique_coll_stats = []
     seen = set()
@@ -240,14 +240,14 @@ def collection_summary(collection_output):
         if collection_name not in seen:
             seen.add(collection_name)
             unique_coll_stats.append(item)
-    
+
     table = "\n"
     table += f"{Bcolors.ACCENT}{'='*100}{Bcolors.ENDC}\n"
     table += f"{Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.HEADER}{'Collection Stats':^98}{Bcolors.ENDC}{Bcolors.ACCENT}| \n"
     table += f"{Bcolors.ACCENT}{'='*100}{Bcolors.ENDC}\n"
     table += f"{Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.STATS_HEADER}{'Database':^20}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.STATS_HEADER}{'Collection':^20}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.STATS_HEADER}{'Sharded':^16}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.STATS_HEADER}{'Size':^14}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.STATS_HEADER}{'Documents':^15}{Bcolors.ENDC}{Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC}\n"
     table += f"{Bcolors.ACCENT}{'='*100}{Bcolors.ENDC}\n"
-    
+
     for coll in unique_coll_stats:
         for coll_name, stats in coll.items():
             size_in_mb = stats["size"] / 1024 / 1024
@@ -256,7 +256,7 @@ def collection_summary(collection_output):
             else:
                 size_display = f"{size_in_mb:.2f} MB"
             table += f"{Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.LIGHT_GRAY_TEXT}{str(stats['db']):^20}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.SECONDARY_HIGHLIGHT}{coll_name:^20}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.SECONDARY_HIGHLIGHT}{str(stats['sharded']):^16}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.SECONDARY_HIGHLIGHT}{size_display:^14}{Bcolors.ENDC} {Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC} {Bcolors.SECONDARY_HIGHLIGHT}{stats['documents']:^15}{Bcolors.ENDC}{Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.ENDC}\n"
-    
+
     table += f"{Bcolors.ACCENT}{'='*100}{Bcolors.ENDC}\n"
     logging.info(table)
 
@@ -311,8 +311,11 @@ async def main_workload_async(args, collection_def, user_queries, specified_dura
 
         app.log_workload_config(collection_def, args, shard_enabled, args.runtime, ratios)
 
+        # Print an immediate message to give user feedback
+        logging.info(f"{Bcolors.WARNING}Workload starting, processes are now warming up...{Bcolors.ENDC}")
+
         start_time = time.time()
-        
+
         processes = []
         for process_id in range(args.cpu):
             p = multiprocessing.Process(
@@ -325,19 +328,19 @@ async def main_workload_async(args, collection_def, user_queries, specified_dura
             )
             processes.append(p)
             p.start()
-        
+
         lock = manager.Lock()
         logger_process = multiprocessing.Process(
             target=logger_process_target,
             args=(args, total_ops_dict, stop_event, lock)
         )
         logger_process.start()
-        
+
         end_time = start_time + args.runtime
         try:
             # Wait for the runtime duration while being responsive to Ctrl+C
             while time.time() < end_time:
-                time.sleep(1) 
+                time.sleep(1)
         except KeyboardInterrupt:
             logging.info("\n[!] Ctrl+C detected! Stopping workload...")
         finally:
@@ -345,23 +348,23 @@ async def main_workload_async(args, collection_def, user_queries, specified_dura
 
         for p in processes:
             p.join()
-        
+
         logger_process.join()
-        
+
         elapsed_time = time.time() - start_time
         workload_output = []
         while not output_queue.empty():
             workload_output.append(output_queue.get())
-        
+
         collection_output = []
         while not collection_queue.empty():
             collection_output.append(collection_queue.get())
-            
+
         collection_summary(collection_output)
         workload_summary(workload_output, elapsed_time, specified_duration_str)
 
 
-def main():        
+def main():
     parser = argparse.ArgumentParser(description="MongoDB Workload Generator")
     parser.add_argument("--runtime", default="60s", help="The total duration to run the workload (e.g., 60s, 5m).")
     parser.add_argument("--threads", type=int, default=4, help="Number of threads per process. (Total threads = threads * cpu)")
@@ -383,14 +386,14 @@ def main():
     parser.add_argument("--skip_delete", action="store_true", help="Skip all delete operations.")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode to show detailed output.")
     parser.add_argument("--collection_definition", help="Path to a JSON file or directory with collection definitions.")
-    
+
     args = parser.parse_args()
 
     user_queries = None
-    
+
     log_level = logging.DEBUG if args.debug else logging.INFO
     configure_logging(log_file=args.log, level=log_level)
-    
+
     if args.custom_queries and not args.collection_definition:
         logging.fatal("Error: The --collection_definition parameter is required when using --custom_queries.")
         sys.exit(1)
@@ -400,7 +403,7 @@ def main():
     if args.log is True:
         logging.error(f"Error: The --log option requires a filename and path (e.g., /tmp/report.log).")
         sys.exit(1)
-        
+
     available_cpus = os.cpu_count()
     if args.cpu > available_cpus:
         logging.info(f"Cannot set CPU to {args.cpu} as there are only {available_cpus} available. Workload will be configured to use {available_cpus} CPUs.")
@@ -416,7 +419,7 @@ def main():
         duration = int(args.runtime[:-1])
         args.runtime = duration
         specified_duration_str = f"{duration:.2f} seconds" # User-friendly string
-        
+
     else:
         raise ValueError("Invalid time format. Use '60s' for seconds or '5m' for minutes.")
 
@@ -424,7 +427,7 @@ def main():
         collection_def = load_collection_definitions(args.collection_definition)
     else:
         collection_def = load_collection_definitions()
-    
+
     if args.custom_queries:
         user_queries = load_custom_queries(args.custom_queries)
         if user_queries is None:
@@ -448,4 +451,4 @@ def main():
 if __name__ == "__main__":
     if sys.platform != 'win32':
         multiprocessing.set_start_method('fork')
-    main()    
+    main()

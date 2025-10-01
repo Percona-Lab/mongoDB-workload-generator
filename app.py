@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import asyncio
-import motor 
+import motor  # type: ignore
 from datetime import datetime
 import random
 import string
-import bson 
-from faker import Faker 
-from customProvider import CustomProvider 
+import bson  # type: ignore
+from faker import Faker  # type: ignore
+from customProvider import CustomProvider
 import time
 import logging
 import textwrap
@@ -14,12 +14,12 @@ import pprint
 import signal
 import sys
 import re
-from urllib.parse import urlencode 
+from urllib.parse import urlencode
 from multiprocessing import Lock
-from mongodbCreds import dbconfig 
+from mongodbCreds import dbconfig
 from mongo_client import get_client, init_async
 import args as args_module
-from pymongo.errors import PyMongoError
+from pymongo.errors import PyMongoError # type: ignore
 import custom_query_executor
 import mongodbLoadQueries
 from mongodbWorkload import Bcolors
@@ -32,8 +32,8 @@ update_count = 0
 delete_count = 0
 select_count = 0
 collection_metadata_cache = {}
-collection_primary_keys = {}       
-inserted_primary_keys = {}        
+collection_primary_keys = {}
+inserted_primary_keys = {}
 collection_shard_metadata = {}
 docs_deleted = 0
 docs_inserted = 0
@@ -94,7 +94,7 @@ def get_primary_key_from_collection(coll):
                 return key_field
             else:
                 logging.warning(f"Shard key '{key_field}' not found in fieldName.")
-    
+
     for field, props in fields.items():
         if props.get("isPrimaryKey") or props.get("unique") is True:
             return field
@@ -104,11 +104,11 @@ def get_primary_key_from_collection(coll):
 # Get collection metadata and store in a cache
 #####################################################################
 async def collect_shard_key_metadata(random_db,random_collection):
-    global collection_shard_metadata  
-    collection_shard_metadata = {}   
+    global collection_shard_metadata
+    collection_shard_metadata = {}
     client = get_client()
     db = client[random_db]
-    
+
     ns = f"{random_db}.{random_collection}"
 
     try:
@@ -132,7 +132,7 @@ async def collect_shard_key_metadata(random_db,random_collection):
         logging.error(f"Error retrieving shard metadata for {ns}: {e}")
 
 async def pre_compute_collection_metadata(args, created_collections, collection_def):
-    global collection_metadata_cache
+    global collection_metadata_cache, collection_primary_keys
     client = get_client()
 
     for db_name, collection_name in created_collections:
@@ -147,7 +147,8 @@ async def pre_compute_collection_metadata(args, created_collections, collection_
             continue
 
         primary_key = get_primary_key_from_collection(coll_entry)
-        
+        collection_primary_keys[(db_name, collection_name)] = primary_key
+
         is_sharded = False
         shard_keys = []
         try:
@@ -186,7 +187,7 @@ async def create_collection(collection_def, collections=1, recreate=False):
 
         client = get_client()
         db = client[db_name]
-        
+
         tasks = []
 
         for i in range(1, collections + 1):
@@ -204,31 +205,24 @@ async def create_collection(collection_def, collections=1, recreate=False):
                         if not dbconfig.get("replicaSet") and shard_config:
                             await shard_collection_async(db_name, collection_name, shard_config)
 
-                        primary_key_field = None
+                        primary_key_field = get_primary_key_from_collection(entry)
+                        collection_primary_keys[(db_name, collection_name)] = primary_key_field
+
                         for index in indexes:
                             index_keys = index["keys"]
                             options = index.get("options", {})
                             keys = list(index_keys.items())
-
-                            if options.get("unique", False) and keys and not primary_key_field:
-                                primary_key_field = keys[0][0]
-
                             try:
                                 index_name = await collection.create_index(keys, **options)
                                 logging.info(f"Successfully created index: '{index_name}'")
                             except PyMongoError as e:
                                 logging.error(f"Failed to create index {keys} on {collection_name}: {e}")
 
-                        if not primary_key_field:
-                            primary_key_field = "_id"
-
-                        collection_primary_keys[(db_name, collection_name)] = primary_key_field
-                    
                     created_collections.append((db_name, collection_name))
                 except PyMongoError as e:
                             logging.error(f"Error creating collection '{collection_name}': {e}")
             tasks.append(create_task(i))
-        
+
         await asyncio.gather(*tasks)
 
     return created_collections
@@ -287,7 +281,7 @@ def generate_random_document(field_schema, context=None):
 
     for field, props in field_schema.items():
         provider = props.get("provider")
-        
+
         if provider:
             if provider == "passengers":
                 doc[field] = fake.passengers(
@@ -367,7 +361,7 @@ async def insert_documents(args, base_collection, random_db, random_collection, 
         async with lock:
             if (random_db, random_collection) not in inserted_primary_keys:
                 inserted_primary_keys[(random_db, random_collection)] = []
-            
+
             key_field = collection_primary_keys.get((random_db, random_collection), "_id")
             if key_field == "_id":
                 inserted_primary_keys[(random_db, random_collection)].extend(result.inserted_ids)
@@ -384,7 +378,7 @@ async def insert_documents(args, base_collection, random_db, random_collection, 
 ##############
 async def select_documents(args, base_collection, random_db, random_collection, collection_def, optimized):
     global select_count, docs_selected, collection_metadata_cache
-    
+
     client = get_client()
     collection = client[random_db][random_collection]
 
@@ -399,11 +393,11 @@ async def select_documents(args, base_collection, random_db, random_collection, 
 
     field_schema = coll_entry.get("fieldName", {})
     primary_key = get_primary_key_from_collection(coll_entry)
-    
-    # Get shard key info from cache 
+
+    # Get shard key info from cache
     shard_info = collection_metadata_cache.get((random_db, random_collection), {})
     shard_keys = shard_info.get("shard_keys", [])
-    
+
     # Get the templates from the caching function
     field_names = list(field_schema.keys())
     field_types = [v.get('type', 'string') for v in field_schema.values()]
@@ -415,7 +409,7 @@ async def select_documents(args, base_collection, random_db, random_collection, 
         if optimized and optimized_templates:
             template = random.choice(optimized_templates)
             pk_value = generate_random_value(field_schema.get(primary_key, {}).get('type', 'string'))
-            
+
             value_map = {"{pk_value}": pk_value}
             for i in range(1, len(field_names)):
                 field = field_names[i]
@@ -427,13 +421,13 @@ async def select_documents(args, base_collection, random_db, random_collection, 
 
             query = mongodbLoadQueries._fill_template(template, value_map)
 
-            # shard key check for optimized queries 
+            # shard key check for optimized queries
             # This ensures that an efficient 'count' operation is properly targeted.
             if shard_keys:
                 missing_keys = [k for k in shard_keys if k not in query]
                 if missing_keys:
                     logging.debug(f"Skipping optimized select on sharded collection {random_db}.{random_collection}: Query missing shard keys {missing_keys}.")
-                    return 
+                    return
 
             if args.debug:
                 logging.debug(f"\n--- [DEBUG] Running COUNT on: {random_db}.{random_collection} ---")
@@ -442,7 +436,7 @@ async def select_documents(args, base_collection, random_db, random_collection, 
             count = await collection.count_documents(query)
             select_count += 1
             docs_selected += count
-            
+
         elif not optimized and ineffective_templates:
             template = random.choice(ineffective_templates)
             projection = random.choice(projection_templates)
@@ -454,7 +448,7 @@ async def select_documents(args, base_collection, random_db, random_collection, 
                 value_map[f"{{{field}_value}}"] = value
                 if bson_type in ["int", "long", "double", "decimal"]:
                      value_map[f"{{{field}_high_value}}"] = value + random.randint(1, 100000)
-            
+
             query = mongodbLoadQueries._fill_template(template, value_map)
 
             if args.debug:
@@ -507,13 +501,15 @@ async def update_documents(args, base_collection, random_db, random_collection, 
         return
 
     chosen_template = random.choice(update_candidates)
+
+    # Use a known primary key from the cache for the update filter
     pk_values_for_coll = inserted_primary_keys.get((random_db, random_collection), [])
     if pk_values_for_coll:
         pk_value = random.choice(pk_values_for_coll)
     else:
         # Fallback if no keys have been cached yet
         pk_value = generate_random_value(field_schema.get(primary_key, {}).get('type', 'string'))
-    
+
     value_map = {"{pk_value}": pk_value}
     for i in range(len(field_names)):
         field = field_names[i]
@@ -534,7 +530,7 @@ async def update_documents(args, base_collection, random_db, random_collection, 
             result = await collection.update_one(filter_query, update_doc)
         else:
             result = await collection.update_many(filter_query, update_doc)
-        
+
         update_count += 1
         docs_updated += result.modified_count
 
@@ -576,21 +572,21 @@ async def delete_documents(args, base_collection, random_db, random_collection, 
     # Pick a random template
     chosen_template = random.choice(delete_candidates)
 
-    # --- Generate values and fill the chosen template ---
+    # Use a known primary key from the cache for the delete filter
     pk_values_for_coll = inserted_primary_keys.get((random_db, random_collection), [])
     if pk_values_for_coll:
         pk_value = random.choice(pk_values_for_coll)
     else:
         # Fallback if no keys have been cached yet
         pk_value = generate_random_value(field_schema.get(primary_key, {}).get('type', 'string'))
-    
+
     value_map = {"{pk_value}": pk_value}
     for i in range(len(field_names)):
         field = field_names[i]
         bson_type = field_types[i]
         value = generate_random_value(bson_type)
         value_map[f"{{{field}_value}}"] = value
-    
+
     # Fill the template to create the final query
     query = mongodbLoadQueries._fill_template(chosen_template, value_map)
 
@@ -612,9 +608,11 @@ async def delete_documents(args, base_collection, random_db, random_collection, 
         delete_count += 1
         docs_deleted += result.deleted_count
 
+        # If a document was deleted using its PK, remove that PK from our cache
         if result.deleted_count > 0 and pk_value in query.values():
-            if (random_db, random_collection) in inserted_primary_keys and pk_value in inserted_primary_keys[(random_db, random_collection)]:
-                inserted_primary_keys[(random_db, random_collection)].remove(pk_value)
+            async with lock:
+                if (random_db, random_collection) in inserted_primary_keys and pk_value in inserted_primary_keys[(random_db, random_collection)]:
+                    inserted_primary_keys[(random_db, random_collection)].remove(pk_value)
 
     except Exception as e:
         logging.error(f"Error deleting documents with query {query}: {e}")
@@ -680,7 +678,7 @@ def workload_ratio_config(args):
         scale_factor = 100 / total_weight
         for key in ratios:
             ratios[key] = round(ratios[key] * scale_factor, 10)
-    args.insert_ratio = ratios["insert_ratio"] 
+    args.insert_ratio = ratios["insert_ratio"]
     args.update_ratio = ratios["update_ratio"]
     args.delete_ratio = ratios["delete_ratio"]
     args.select_ratio = ratios["select_ratio"]
@@ -699,11 +697,11 @@ def log_workload_config(collection_def, args, shard_enabled, workload_length, wo
     )
 
     table_width = 115
-    workload_details = textwrap.dedent(f"""\n 
+    workload_details = textwrap.dedent(f"""\n
     {Bcolors.WORKLOAD_SETTING}Duration:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{workload_length} seconds{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})    
-    {Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC} ({collection_info})   
+    {Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})
+    {Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC} ({collection_info})
     {Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{"Disabled" if args.custom_queries else args.collections}{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{shard_enabled}{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.batch_size}{Bcolors.ENDC}
@@ -713,12 +711,12 @@ def log_workload_config(collection_def, args, shard_enabled, workload_length, wo
     {Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}\n
     {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}
     {Bcolors.BOLD}{Bcolors.HEADER}{' Workload Started':^{table_width - 2}}{Bcolors.ENDC}
-    {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}\n""")   
+    {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}\n""")
     logging.info(workload_details)
 
 ##########################################
 # Calculate operations per report_interval
-########################################## 
+##########################################
 async def update_stats_periodically(process_id, total_ops_dict, stop_event, report_interval):
     """Calculates the delta of operations since last check and updates the shared dict."""
     last_counts = {"insert": 0, "update": 0, "delete": 0, "select": 0}
@@ -745,10 +743,9 @@ async def update_stats_periodically(process_id, total_ops_dict, stop_event, repo
 
 ##############################################
 # Output total operations across all CPUs
-##############################################        
+##############################################
 def log_total_ops_per_interval(args, total_ops_dict, stop_event, lock):
-    # This flag will ensure the "warming up" message only prints once.
-    is_warming_up = True 
+    """This function is now only responsible for printing throughput stats when they are available."""
     while not stop_event.is_set():
         time.sleep(args.report_interval)
         with lock:
@@ -757,24 +754,18 @@ def log_total_ops_per_interval(args, total_ops_dict, stop_event, lock):
             total_updates = sum(total_ops_dict['update'])
             total_deletes = sum(total_ops_dict['delete'])
             total_ops = total_selects + total_inserts + total_updates + total_deletes
-            
-            # --- Start of Changed Block ---
+
             if total_ops > 0:
                 logging.info(
                     f"{Bcolors.GRAY_TEXT}Throughput last {args.report_interval}s ({args.cpu} CPUs): {Bcolors.BOLD}{Bcolors.HIGHLIGHT}{total_ops:.2f} ops/sec{Bcolors.ENDC}{Bcolors.GRAY_TEXT} "
                     f"(SELECTS: {total_selects:.2f}, INSERTS: {total_inserts:.2f}, "
                     f"UPDATES: {total_updates:.2f}, DELETES: {total_deletes:.2f}){Bcolors.ENDC}"
                 )
-                # Once we get real data, we are no longer warming up.
-                is_warming_up = False
-            elif is_warming_up:
-                # Only print the friendly message if we haven't received real stats yet.
-                logging.info(f"{Bcolors.WARNING}Workload warming up, waiting for first operations to complete...{Bcolors.ENDC}")
 
 #####################################################################
-# Obtain real-time workload stats for each CPU. This is stored in the 
+# Obtain real-time workload stats for each CPU. This is stored in the
 # output_queue which is later summarized by the main application file
-##################################################################### 
+#####################################################################
 def workload_stats(select_count, insert_count, update_count, delete_count, process_id, output_queue):
     stats_dict = {
         "process_id": process_id,
@@ -793,8 +784,8 @@ def workload_stats(select_count, insert_count, update_count, delete_count, proce
 
 ##########################################################################
 # Obtain stats for all collections but only when the workload has finished
-# We only need to collect this from only one of the running CPUs since the 
-# collection information would be the same. This is stored in the 
+# We only need to collect this from only one of the running CPUs since the
+# collection information would be the same. This is stored in the
 # collection_queue which is later summarized by the main application file
 ##########################################################################
 async def collection_stats_async(collection_def, collections, collection_queue):
@@ -841,7 +832,19 @@ async def random_worker_async(args, created_collections, collection_def, stop_ev
     delete_ratio = args.delete_ratio if args.delete_ratio is not None else 10
     select_ratio = args.select_ratio if args.select_ratio is not None else 60
     optimized = bool(args.optimized)
-    
+
+    # WARM-UP PHASE: Only run if inserts are part of the workload.
+    if insert_ratio > 0:
+        if args.debug:
+            logging.debug("Worker starting warm-up phase to pre-populate data...")
+
+        for db_name, collection_name in created_collections:
+            base_collection = re.sub(r'_\d+$', '', collection_name) if args.collections > 1 else collection_name
+            await insert_documents(args, base_collection, db_name, collection_name, collection_def, args.batch_size)
+
+        if args.debug:
+            logging.debug("Warm-up complete. Starting main timed workload.")
+
     work_start = time.time()
     operations = ["insert", "update", "delete", "select"]
     weights = [insert_ratio, update_ratio, delete_ratio, select_ratio]
@@ -849,7 +852,6 @@ async def random_worker_async(args, created_collections, collection_def, stop_ev
     while time.time() - work_start < runtime and not stop_event.is_set():
         operation = random.choices(operations, weights=weights, k=1)[0]
         random_db, random_collection = random.choice(created_collections)
-        field_schema = collection_def[0]["fieldName"]
         if args.collections > 1:
             base_collection = re.sub(r'_\d+$', '', random_collection)
         else:
@@ -871,19 +873,19 @@ async def random_worker_async(args, created_collections, collection_def, stop_ev
 async def custom_worker_async(args, created_collections, collection_def, user_queries, stop_event):
     global select_count, insert_count, update_count, delete_count, docs_selected, docs_inserted, docs_updated, docs_deleted
     runtime = args.runtime
-    
+
     select_queries = [q for q in user_queries if q.get("operation") in ["find", "aggregate", "count"]]
     update_queries = [q for q in user_queries if q.get("operation") in ["updateOne", "updateMany"]]
     delete_queries = [q for q in user_queries if q.get("operation") in ["deleteOne", "deleteMany"]]
 
     operations = []
     weights = []
-    
+
     select_ratio = args.select_ratio if args.select_ratio is not None else 0
     insert_ratio = args.insert_ratio if args.insert_ratio is not None else 0
     update_ratio = args.update_ratio if args.update_ratio is not None else 0
     delete_ratio = args.delete_ratio if args.delete_ratio is not None else 0
-    
+
     if not args.skip_select and select_ratio > 0 and select_queries:
         operations.append("select")
         weights.append(select_ratio)
@@ -901,26 +903,36 @@ async def custom_worker_async(args, created_collections, collection_def, user_qu
         logging.warning("No operations available for the given ratios and user query file. Worker is idle.")
         return
 
-    if args.debug:
-        logging.debug(f"Hybrid worker started. Operations enabled: {operations}")
+    # WARM-UP PHASE: Only run if inserts are part of the workload.
+    if insert_ratio > 0:
+        if args.debug:
+            logging.debug("Worker starting warm-up phase to pre-populate data...")
+
+        for db_name, collection_name in created_collections:
+            base_collection = re.sub(r'_\d+$', '', collection_name) if args.collections > 1 else collection_name
+            await insert_documents(args, base_collection, db_name, collection_name, collection_def, args.batch_size)
+
+        if args.debug:
+            logging.debug("Warm-up complete. Starting main timed workload.")
+
     work_start = time.time()
 
     while time.time() - work_start < runtime and not stop_event.is_set():
         chosen_op = random.choices(operations, weights=weights, k=1)[0]
-        
+
         if chosen_op == "select":
             query_def = random.choice(select_queries)
-            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value)
+            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache)
             select_count += op_count
             docs_selected += docs_affected
         elif chosen_op == "update":
             query_def = random.choice(update_queries)
-            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value)
+            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache)
             update_count += op_count
             docs_updated += docs_affected
         elif chosen_op == "delete":
             query_def = random.choice(delete_queries)
-            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value)
+            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache)
             delete_count += op_count
             docs_deleted += docs_affected
         elif chosen_op == "insert":
@@ -934,7 +946,7 @@ async def custom_worker_async(args, created_collections, collection_def, user_qu
 async def start_workload_async(args, process_id, completed_processes, output_queue, collection_queue, total_ops_dict, collection_def, created_collections, user_queries=None, stop_event=None):
     await init_async() # Each process initializes its own client
     await pre_compute_collection_metadata(args, created_collections, collection_def)
-    
+
     try:
         if user_queries:
             if args.debug:
@@ -944,12 +956,12 @@ async def start_workload_async(args, process_id, completed_processes, output_que
             if args.debug:
                 logging.debug(f"Process {process_id} is starting with {args.threads} worker coroutines for random queries.")
             workers = [asyncio.create_task(random_worker_async(args, created_collections, collection_def, stop_event)) for _ in range(args.threads)]
-        
+
         stats_updater_task = asyncio.create_task(update_stats_periodically(process_id, total_ops_dict, stop_event, args.report_interval))
         workers.append(stats_updater_task)
 
         await asyncio.gather(*workers)
-        
+
     except asyncio.CancelledError:
         pass
     finally:

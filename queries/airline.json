@@ -4,7 +4,7 @@
         "collection": "flights",
         "operation": "find",
         "filter": {
-            "flight_id": "<int>"
+            "flight_id": "<pk>"
         },
         "projection": {
             "flight_id": 1,
@@ -20,7 +20,7 @@
         "collection": "flights",
         "operation": "count",
         "filter": {
-            "flight_id": "<int>"
+            "flight_id": "<pk>"
         }
     },
     {
@@ -28,7 +28,7 @@
         "collection": "flights",
         "operation": "find",
         "filter": {
-            "flight_id": "<int>",
+            "flight_id": "<pk>",
             "gate": "<gate>"
         },
         "projection": {
@@ -46,7 +46,7 @@
         "operation": "find",
         "filter": {
             "duration_minutes": {
-                "flight_id": "<int>",
+                "flight_id": "<pk>",
                 "$lt": "<int>"
             }
         },

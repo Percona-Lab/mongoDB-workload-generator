@@ -98,7 +98,7 @@
         "collection": "cars",
         "operation": "updateOne",
         "filter": {
-            "rental_id": "<int>"
+            "rental_id": "<pk>"
         },
         "update": {
             "$set": {
@@ -130,7 +130,7 @@
         "collection": "cars",
         "operation": "updateOne",
         "filter": {
-            "rental_id": "<int>"
+            "rental_id": "<pk>"
         },
         "update": {
             "$push": {
@@ -148,7 +148,7 @@
         "collection": "cars",
         "operation": "deleteOne",
         "filter": {
-            "rental_id": "<int>"
+            "rental_id": "<pk>"
         }
     },
     {

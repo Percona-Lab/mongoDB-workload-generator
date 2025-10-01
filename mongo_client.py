@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import motor.motor_asyncio as motor
+import motor.motor_asyncio as motor # type: ignore
 import logging
 import sys
 from urllib.parse import urlencode

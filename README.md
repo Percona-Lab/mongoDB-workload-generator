@@ -439,6 +439,11 @@ The parameters available and their use cases are shown below:
 
   - The query definition files are in JSON format and 2 examples have been provided, so you can build your own custom queries to match your specific use case (make sure you follow the same syntax as provided in the examples).
 
+  - You can use standard or custom datatypes in your query json files (see queries/arilines.json and queries/rental.json for examples):
+   * `<pk>` -- This will guarantee the query uses an existing random primary key value for the given collection (instead of a dynamic random value)
+   * `<int>`,`<double>`,`<string>` ... etc -- This will use the standard datatypes
+   * `<gate>`,`<car_type>`,`<email>`,`<city>` ... -- These are custom data types you have created and added to customProvider.py or available via the faker library 
+
   - You can also store your custom queries in a separate folder, however you will need to pass the path, and this will randomly generate queries based on all the files in that folder: `--custom_queries /tmp/custom_query_folder` 
 
 15. Combine sharded and non-sharded collections in the same workload
