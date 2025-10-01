@@ -264,62 +264,7 @@ options:
 
 Once you have configured the settings to match your environment, you can run the workload without specifying any parameters. This will utilize the default settings, providing a great way to familiarize yourself with the tool and review its output. The default setting is not optimized, this means it will randomly choose between optimized and innefective queries, so your performance may vary and this can be quite slow:
 
-```
-./mongodbWorkload.py
-2025-09-26 18:40:38 - INFO - Loaded 1 collection definition(s) from 'collections/rental.json'
-2025-09-26 18:40:38 - INFO - Loaded 1 collection definition(s) from 'collections/airline.json'
-2025-09-26 18:40:39 - INFO -
-
-Duration: 60 seconds
-CPUs: 1
-Threads: (Per CPU: 4 | Total: 4)
-Database and Collection: (rental.cars | airline.flights)
-Instances of the same collection: 1
-Configure Sharding: True
-Insert batch size: 10
-Optimized workload: False
-Workload ratio: (SELECTS: 60% | INSERTS: 10% | UPDATES: 20% | DELETES: 10%)
-Report frequency: 5 seconds
-Report logfile: None
-
-===================================================================================================================
-                                                 Workload Started
-===================================================================================================================
-
-2025-09-26 18:40:44 - INFO - Workload warming up, waiting for first operations to complete...
-2025-09-26 18:40:49 - INFO - Throughput last 5s (1 CPUs): 79.00 ops/sec (SELECTS: 47.00, INSERTS: 9.00, UPDATES: 16.40, DELETES: 6.60)
-2025-09-26 18:40:54 - INFO - Throughput last 5s (1 CPUs): 82.60 ops/sec (SELECTS: 49.40, INSERTS: 9.00, UPDATES: 15.60, DELETES: 8.60)
-2025-09-26 18:40:59 - INFO - Throughput last 5s (1 CPUs): 82.00 ops/sec (SELECTS: 53.80, INSERTS: 8.20, UPDATES: 14.40, DELETES: 5.60)
-2025-09-26 18:41:04 - INFO - Throughput last 5s (1 CPUs): 81.60 ops/sec (SELECTS: 45.20, INSERTS: 9.20, UPDATES: 16.60, DELETES: 10.60)
-2025-09-26 18:41:09 - INFO - Throughput last 5s (1 CPUs): 80.80 ops/sec (SELECTS: 45.80, INSERTS: 11.20, UPDATES: 16.80, DELETES: 7.00)
-2025-09-26 18:41:14 - INFO - Throughput last 5s (1 CPUs): 79.80 ops/sec (SELECTS: 45.80, INSERTS: 9.20, UPDATES: 16.60, DELETES: 8.20)
-2025-09-26 18:41:19 - INFO - Throughput last 5s (1 CPUs): 79.20 ops/sec (SELECTS: 49.20, INSERTS: 6.60, UPDATES: 16.20, DELETES: 7.20)
-2025-09-26 18:41:24 - INFO - Throughput last 5s (1 CPUs): 76.00 ops/sec (SELECTS: 44.60, INSERTS: 8.60, UPDATES: 17.20, DELETES: 5.60)
-2025-09-26 18:41:29 - INFO - Throughput last 5s (1 CPUs): 78.00 ops/sec (SELECTS: 44.00, INSERTS: 8.80, UPDATES: 18.20, DELETES: 7.00)
-2025-09-26 18:41:34 - INFO - Throughput last 5s (1 CPUs): 79.60 ops/sec (SELECTS: 43.60, INSERTS: 9.80, UPDATES: 16.80, DELETES: 9.40)
-2025-09-26 18:41:39 - INFO - Throughput last 5s (1 CPUs): 78.20 ops/sec (SELECTS: 45.60, INSERTS: 10.00, UPDATES: 14.00, DELETES: 8.60)
-2025-09-26 18:41:44 - INFO - Throughput last 5s (1 CPUs): 72.00 ops/sec (SELECTS: 46.00, INSERTS: 6.60, UPDATES: 12.20, DELETES: 7.20)
-2025-09-26 18:41:44 - INFO -
-====================================================================================================
-|                                         Collection Stats                                         |
-====================================================================================================
-|       Database       |      Collection      |     Sharded      |      Size      |    Documents   |
-====================================================================================================
-|        rental        |         cars         |       True       |    0.10 MB     |       290      |
-|       airline        |       flights        |       True       |    0.17 MB     |       54       |
-====================================================================================================
-
-2025-09-26 18:41:44 - INFO -
-===================================================================================================================
-                                            Combined Workload Stats
-===================================================================================================================
-Specified Duration: 60.00 seconds
-Total Elapsed Time: 1.08 minutes
-Total Operations: 4744 (SELECT: 2800, INSERT: 531, UPDATE: 955, DELETE: 458)
-Overall Throughput: 72.88 ops/sec (SELECTS: 43.02, INSERTS: 8.16, UPDATES: 14.67, DELETES: 7.04)
-Total: (Documents Inserted: 5310 | Documents Found: 2581 | Documents Updated: 108106 | Documents Deleted: 5056)
-===================================================================================================================
-```
+![Workload Sample](./workload.png)
 
 #### Advanced Usage
 
