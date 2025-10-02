@@ -394,35 +394,40 @@ async def select_documents(args, base_collection, random_db, random_collection, 
     field_schema = coll_entry.get("fieldName", {})
     primary_key = get_primary_key_from_collection(coll_entry)
 
-    # Get shard key info from cache
+    # Get shard key info from the correct cache
     shard_info = collection_metadata_cache.get((random_db, random_collection), {})
     shard_keys = shard_info.get("shard_keys", [])
 
     # Get the templates from the caching function
     field_names = list(field_schema.keys())
     field_types = [v.get('type', 'string') for v in field_schema.values()]
-    optimized_templates, ineffective_templates, projection_templates = mongodbLoadQueries.select_queries(
-        field_names, field_types, primary_key
+    
+    # --- CHANGE: Pass 'optimized' and expect back one list of templates ---
+    templates, projection_templates = mongodbLoadQueries.select_queries(
+        field_names, field_types, primary_key, optimized
     )
 
     try:
-        if optimized and optimized_templates:
-            template = random.choice(optimized_templates)
-            pk_value = generate_random_value(field_schema.get(primary_key, {}).get('type', 'string'))
+        if not templates:
+            logging.warning(f"No select query templates generated for {random_db}.{random_collection}")
+            return
 
-            value_map = {"{pk_value}": pk_value}
-            for i in range(1, len(field_names)):
-                field = field_names[i]
-                bson_type = field_types[i]
-                value = generate_random_value(bson_type)
-                value_map[f"{{{field}_value}}"] = value
-                if bson_type in ["int", "long", "double", "decimal"]:
-                     value_map[f"{{{field}_high_value}}"] = value + random.randint(1, 100000)
+        template = random.choice(templates)
+        
+        # Generate all possible values the template might need
+        pk_value = generate_random_value(field_schema.get(primary_key, {}).get('type', 'string'))
+        value_map = {"{pk_value}": pk_value}
+        for i in range(len(field_names)):
+            field, bson_type = field_names[i], field_types[i]
+            value = generate_random_value(bson_type)
+            value_map[f"{{{field}_value}}"] = value
+            if bson_type in ["int", "long", "double", "decimal"]:
+                    value_map[f"{{{field}_high_value}}"] = value + random.randint(1, 100000)
 
-            query = mongodbLoadQueries._fill_template(template, value_map)
+        query = mongodbLoadQueries._fill_template(template, value_map)
 
-            # shard key check for optimized queries
-            # This ensures that an efficient 'count' operation is properly targeted.
+        # Logic now correctly branches based on the 'optimized' flag
+        if optimized:
             if shard_keys:
                 missing_keys = [k for k in shard_keys if k not in query]
                 if missing_keys:
@@ -436,20 +441,9 @@ async def select_documents(args, base_collection, random_db, random_collection, 
             count = await collection.count_documents(query)
             select_count += 1
             docs_selected += count
-
-        elif not optimized and ineffective_templates:
-            template = random.choice(ineffective_templates)
+            
+        else: # Unoptimized
             projection = random.choice(projection_templates)
-            value_map = {}
-            for i in range(1, len(field_names)):
-                field = field_names[i]
-                bson_type = field_types[i]
-                value = generate_random_value(bson_type)
-                value_map[f"{{{field}_value}}"] = value
-                if bson_type in ["int", "long", "double", "decimal"]:
-                     value_map[f"{{{field}_high_value}}"] = value + random.randint(1, 100000)
-
-            query = mongodbLoadQueries._fill_template(template, value_map)
 
             if args.debug:
                 logging.debug(f"\n--- [DEBUG] Running FIND on: {random_db}.{random_collection} ---")
@@ -467,7 +461,7 @@ async def select_documents(args, base_collection, random_db, random_collection, 
 # Update Docs
 ##############
 async def update_documents(args, base_collection, random_db, random_collection, collection_def, optimized):
-    global update_count, docs_updated, collection_shard_metadata
+    global update_count, docs_updated, collection_metadata_cache, inserted_primary_keys
 
     collection = get_client()[random_db][random_collection]
 
@@ -483,18 +477,16 @@ async def update_documents(args, base_collection, random_db, random_collection, 
     field_schema = coll_entry.get("fieldName", {})
     primary_key = get_primary_key_from_collection(coll_entry)
 
-    # Get shard key info
     shard_info = collection_metadata_cache.get((random_db, random_collection), {})
     shard_keys = shard_info.get("shard_keys", [])
 
-    # Get the templates, now passing the shard_keys to the generator
     field_names = list(field_schema.keys())
     field_types = [v.get('type', 'string') for v in field_schema.values()]
-    optimized_templates, ineffective_templates = mongodbLoadQueries.update_queries(
-        field_names, field_types, primary_key, shard_keys
-    )
 
-    update_candidates = optimized_templates if optimized else ineffective_templates
+    # --- CHANGE: Pass 'optimized' and receive a single list of templates ---
+    update_candidates = mongodbLoadQueries.update_queries(
+        field_names, field_types, primary_key, shard_keys, optimized
+    )
 
     if not update_candidates:
         logging.warning(f"No update queries available for {random_collection} (shard key fields are excluded).")
@@ -502,18 +494,15 @@ async def update_documents(args, base_collection, random_db, random_collection, 
 
     chosen_template = random.choice(update_candidates)
 
-    # Use a known primary key from the cache for the update filter
     pk_values_for_coll = inserted_primary_keys.get((random_db, random_collection), [])
     if pk_values_for_coll:
         pk_value = random.choice(pk_values_for_coll)
     else:
-        # Fallback if no keys have been cached yet
         pk_value = generate_random_value(field_schema.get(primary_key, {}).get('type', 'string'))
 
     value_map = {"{pk_value}": pk_value}
     for i in range(len(field_names)):
-        field = field_names[i]
-        bson_type = field_types[i]
+        field, bson_type = field_names[i], field_types[i]
         value = generate_random_value(bson_type)
         value_map[f"{{{field}_value}}"] = value
         if bson_type in ["int", "long", "double", "decimal"]:
@@ -541,7 +530,7 @@ async def update_documents(args, base_collection, random_db, random_collection, 
 # Delete Docs
 ##############
 async def delete_documents(args, base_collection, random_db, random_collection, collection_def, optimized):
-    global delete_count, docs_deleted, collection_shard_metadata
+    global delete_count, docs_deleted, collection_metadata_cache, inserted_primary_keys, lock
     collection = get_client()[random_db][random_collection]
 
     coll_entry = next(
@@ -556,51 +545,43 @@ async def delete_documents(args, base_collection, random_db, random_collection, 
     field_schema = coll_entry.get("fieldName", {})
     primary_key = get_primary_key_from_collection(coll_entry)
 
-    # Get the templates from caching function
     field_names = list(field_schema.keys())
     field_types = [v.get('type', 'string') for v in field_schema.values()]
-    optimized_templates, ineffective_templates = mongodbLoadQueries.delete_queries(
-        field_names, field_types, primary_key
-    )
 
-    delete_candidates = optimized_templates if optimized else ineffective_templates
+    # --- CHANGE: Pass 'optimized' and receive a single list of templates ---
+    delete_candidates = mongodbLoadQueries.delete_queries(
+        field_names, field_types, primary_key, optimized
+    )
 
     if not delete_candidates:
         logging.warning("No delete queries generated")
         return
 
-    # Pick a random template
     chosen_template = random.choice(delete_candidates)
 
-    # Use a known primary key from the cache for the delete filter
     pk_values_for_coll = inserted_primary_keys.get((random_db, random_collection), [])
     if pk_values_for_coll:
         pk_value = random.choice(pk_values_for_coll)
     else:
-        # Fallback if no keys have been cached yet
         pk_value = generate_random_value(field_schema.get(primary_key, {}).get('type', 'string'))
 
     value_map = {"{pk_value}": pk_value}
     for i in range(len(field_names)):
-        field = field_names[i]
-        bson_type = field_types[i]
+        field, bson_type = field_names[i], field_types[i]
         value = generate_random_value(bson_type)
         value_map[f"{{{field}_value}}"] = value
 
-    # Fill the template to create the final query
     query = mongodbLoadQueries._fill_template(chosen_template, value_map)
 
     try:
         shard_info = collection_metadata_cache.get((random_db, random_collection), {})
-        is_sharded = shard_info.get("sharded", False)
         shard_keys = shard_info.get("shard_keys", [])
 
-        # Optimized deletes are delete_one, ineffective are delete_many
         if optimized:
-            if is_sharded and shard_keys:
+            if shard_keys:
                 missing_keys = [k for k in shard_keys if k not in query]
                 if missing_keys:
-                    return # Skip if shard key is missing
+                    return
             result = await collection.delete_one(query)
         else:
             result = await collection.delete_many(query)
@@ -608,10 +589,9 @@ async def delete_documents(args, base_collection, random_db, random_collection, 
         delete_count += 1
         docs_deleted += result.deleted_count
 
-        # If a document was deleted using its PK, remove that PK from our cache
         if result.deleted_count > 0 and pk_value in query.values():
             async with lock:
-                if (random_db, random_collection) in inserted_primary_keys and pk_value in inserted_primary_keys[(random_db, random_collection)]:
+                if (random_db, random_collection) in inserted_primary_keys and pk_value in inserted_primary_keys.get((random_db, random_collection), []):
                     inserted_primary_keys[(random_db, random_collection)].remove(pk_value)
 
     except Exception as e:
