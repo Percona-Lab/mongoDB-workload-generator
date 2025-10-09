@@ -23,6 +23,7 @@ from pymongo.errors import PyMongoError # type: ignore
 import custom_query_executor
 import mongodbLoadQueries
 from mongodbWorkload import Bcolors
+import os
 
 fake = Faker()
 fake.add_provider(CustomProvider)
@@ -410,12 +411,26 @@ async def insert_documents(args, base_collection, random_db, random_collection, 
 ##############
 # Select Docs
 ##############
-async def select_documents(args, base_collection, random_db, random_collection, collection_def, optimized):
-    global select_count, docs_selected, collection_metadata_cache
+async def select_documents(args, base_collection, random_db, random_collection, collection_def, optimized, prebuilt_query=None):
+    global select_count, docs_selected
+    collection = get_client()[random_db][random_collection]
 
-    client = get_client()
-    collection = client[random_db][random_collection]
+    if prebuilt_query:
+        # --- NEW FAST PATH ---
+        # If a query is provided, execute it immediately and skip all generation.
+        try:
+            if args.debug:
+                logging.debug(f"\n--- [DEBUG] Running COUNT on: {random_db}.{random_collection} ---")
+                logging.debug(f"Pre-built Query: {pprint.pformat(prebuilt_query)}")
+            
+            count = await collection.count_documents(prebuilt_query)
+            select_count += 1
+            docs_selected += count
+        except PyMongoError as e:
+            logging.error(f"Error selecting from collection {random_db}.{random_collection}: {e}")
+        return
 
+    # --- Original logic remains as a fallback ---
     coll_entry = next(
         (item for item in collection_def
          if item.get("databaseName") == random_db and item.get("collectionName") == base_collection),
@@ -834,9 +849,10 @@ async def collection_stats_async(collection_def, collections, collection_queue):
 ##############################################################################
 # WORKER FOR RANDOMIZED WORKLOAD (Used when a user query file is not provided)
 ##############################################################################
+# In app.py, replace your random_worker_async function with this corrected version
+
 async def random_worker_async(args, created_collections, collection_def, stop_event):
     runtime = args.runtime
-    batch_size = args.batch_size
     skip_update = args.skip_update
     skip_delete = args.skip_delete
     skip_insert = args.skip_insert
@@ -847,38 +863,82 @@ async def random_worker_async(args, created_collections, collection_def, stop_ev
     select_ratio = args.select_ratio if args.select_ratio is not None else 60
     optimized = bool(args.optimized)
 
-    # WARM-UP PHASE: Only run if inserts are part of the workload.
+    # --- PRE-BUILD A POOL OF REUSABLE QUERIES ---
+    query_pool = []
+    if select_ratio > 0 and not skip_select:
+        logging.debug(f"Worker process {os.getpid()} is pre-building a query pool for SELECT operations...")
+        num_queries_to_build = 1000 
+
+        for _ in range(num_queries_to_build):
+            random_db, random_collection = random.choice(created_collections)
+            
+            metadata = collection_metadata_cache.get((random_db, random_collection))
+            if not metadata: continue
+
+            field_schema = metadata.get("field_schema", {})
+            primary_key = metadata.get("primary_key", "_id")
+            
+            # --- THIS IS THE CORRECTED LINE ---
+            # Pass empty lists instead of None to prevent the TypeError
+            templates, _ = mongodbLoadQueries.select_queries([], [], primary_key, optimized=True)
+            if not templates: continue
+            template = templates[0]
+
+            pk_type = field_schema.get(primary_key, {}).get("type", "string")
+            pk_value = generate_random_value(pk_type)
+            value_map = {"{pk_value}": pk_value}
+            final_query = mongodbLoadQueries._fill_template(template, value_map)
+            
+            query_pool.append((random_db, random_collection, final_query))
+    
+    if not query_pool and select_ratio > 0 and not skip_select:
+        logging.warning("Query pool is empty. SELECT operations may not run.")
+
+    # WARM-UP PHASE
     if insert_ratio > 0:
         if args.debug:
             logging.debug("Worker starting warm-up phase to pre-populate data...")
-
         for db_name, collection_name in created_collections:
             base_collection = re.sub(r'_\d+$', '', collection_name) if args.collections > 1 else collection_name
             await insert_documents(args, base_collection, db_name, collection_name, collection_def, args.batch_size)
-
         if args.debug:
             logging.debug("Warm-up complete. Starting main timed workload.")
 
+    # --- MODIFIED WORKER LOOP ---
     work_start = time.time()
     operations = ["insert", "update", "delete", "select"]
     weights = [insert_ratio, update_ratio, delete_ratio, select_ratio]
+    task_batch_size = 100 
+    pool_size = len(query_pool)
+    query_index = 0
 
     while time.time() - work_start < runtime and not stop_event.is_set():
-        operation = random.choices(operations, weights=weights, k=1)[0]
-        random_db, random_collection = random.choice(created_collections)
-        if args.collections > 1:
-            base_collection = re.sub(r'_\d+$', '', random_collection)
-        else:
-            base_collection = random_collection
+        tasks = []
+        for _ in range(task_batch_size):
+            operation = random.choices(operations, weights=weights, k=1)[0]
+            
+            if operation == "select" and not skip_select and pool_size > 0:
+                db, coll, query = query_pool[query_index % pool_size]
+                query_index += 1
+                tasks.append(select_documents(args, None, db, coll, None, optimized, prebuilt_query=query))
+            
+            elif operation == "insert" and not skip_insert:
+                random_db, random_collection = random.choice(created_collections)
+                base_collection = re.sub(r'_\d+$', '', random_collection) if args.collections > 1 else random_collection
+                tasks.append(insert_documents(args, base_collection, random_db, random_collection, collection_def, batch_size=10))
 
-        if operation == "insert" and not skip_insert:
-            await insert_documents(args, base_collection, random_db, random_collection, collection_def, batch_size=10)
-        elif operation == "update" and not skip_update:
-            await update_documents(args, base_collection, random_db, random_collection, collection_def, optimized)
-        elif operation == "delete" and not skip_delete:
-            await delete_documents(args, base_collection, random_db, random_collection, collection_def, optimized)
-        elif operation == "select" and not skip_select:
-            await select_documents(args, base_collection, random_db, random_collection, collection_def, optimized)
+            elif operation == "update" and not skip_update:
+                random_db, random_collection = random.choice(created_collections)
+                base_collection = re.sub(r'_\d+$', '', random_collection) if args.collections > 1 else random_collection
+                tasks.append(update_documents(args, base_collection, random_db, random_collection, collection_def, optimized))
+
+            elif operation == "delete" and not skip_delete:
+                random_db, random_collection = random.choice(created_collections)
+                base_collection = re.sub(r'_\d+$', '', random_collection) if args.collections > 1 else random_collection
+                tasks.append(delete_documents(args, base_collection, random_db, random_collection, collection_def, optimized))
+            
+        if tasks:
+            await asyncio.gather(*tasks)
 
 ####################################################################################################
 # WORKER FOR CUSTOM QUERY MODE (This is used whenthe user has provided their own custom query file)
@@ -930,35 +990,50 @@ async def custom_worker_async(args, created_collections, collection_def, user_qu
             logging.debug("Warm-up complete. Starting main timed workload.")
 
     work_start = time.time()
+    task_batch_size = 100 # How many concurrent tasks to run at once
 
     while time.time() - work_start < runtime and not stop_event.is_set():
-        chosen_op = random.choices(operations, weights=weights, k=1)[0]
+        tasks = []
+        for _ in range(task_batch_size):
+            chosen_op = random.choices(operations, weights=weights, k=1)[0]
 
-        if chosen_op == "select":
-            query_def = random.choice(select_queries)
-            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache)
-            select_count += op_count
-            docs_selected += docs_affected
-        elif chosen_op == "update":
-            query_def = random.choice(update_queries)
-            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache)
-            update_count += op_count
-            docs_updated += docs_affected
-        elif chosen_op == "delete":
-            query_def = random.choice(delete_queries)
-            op_type, op_count, docs_affected = await custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache)
-            delete_count += op_count
-            docs_deleted += docs_affected
-        elif chosen_op == "insert":
-            random_db, random_collection = random.choice(created_collections)
-            base_collection = re.sub(r'_\d+$', '', random_collection) if args.collections > 1 else random_collection
-            await insert_documents(args, base_collection, random_db, random_collection, collection_def, args.batch_size)
+            if chosen_op == "select":
+                query_def = random.choice(select_queries)
+                # Note: We append the coroutine, but don't await it here
+                tasks.append(custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache))
+            elif chosen_op == "update":
+                query_def = random.choice(update_queries)
+                tasks.append(custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache))
+            elif chosen_op == "delete":
+                query_def = random.choice(delete_queries)
+                tasks.append(custom_query_executor.execute_user_query_async(args, query_def, fake, generate_random_value, inserted_primary_keys, collection_primary_keys, collection_metadata_cache))
+            elif chosen_op == "insert":
+                random_db, random_collection = random.choice(created_collections)
+                base_collection = re.sub(r'_\d+$', '', random_collection) if args.collections > 1 else random_collection
+                tasks.append(insert_documents(args, base_collection, random_db, random_collection, collection_def, args.batch_size))
+        
+        if tasks:
+            # We must handle the results from custom queries to update the counters
+            results = await asyncio.gather(*tasks)
+            for result in results:
+                if result is None: continue # Handles insert tasks which don't return counters
+
+                op_type, op_count, docs_affected = result
+                if op_type in ["find", "aggregate", "count"]:
+                    select_count += op_count
+                    docs_selected += docs_affected
+                elif op_type in ["updateOne", "updateMany"]:
+                    update_count += op_count
+                    docs_updated += docs_affected
+                elif op_type in ["deleteOne", "deleteMany"]:
+                    delete_count += op_count
+                    docs_deleted += docs_affected
 
 ####################
 # Start the workload
 ####################
 async def start_workload_async(args, process_id, completed_processes, output_queue, collection_queue, total_ops_dict, collection_def, created_collections, user_queries=None, stop_event=None):
-    await init_async() # Each process initializes its own client
+    await init_async(args) # Each process initializes its own client
     await pre_compute_collection_metadata(args, created_collections, collection_def)
 
     try:

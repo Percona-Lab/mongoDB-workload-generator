@@ -9,7 +9,8 @@ def _fill_template(template, value_map):
     Recursively fills placeholders in a query template by working
     directly with the dictionary, which is much safer than string replacement.
     """
-    query = copy.deepcopy(template)
+    # query = copy.deepcopy(template)
+    query = template.copy()
     def _substitute(obj):
         if isinstance(obj, dict):
             for key, value in obj.items():
