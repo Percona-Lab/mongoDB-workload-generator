@@ -22,10 +22,11 @@
             "passengers": { "type": "array", "provider": "passengers" }
         },
         "indexes": [
-            { "keys": { "flight_id": 1, "equipment.plane_type": 1 } },
+            { "keys": { "flight_id": 1, "equipment.$**": 1 } },
             { "keys": { "flight_id": 1, "seats_available": 1 } },
             { "keys": { "flight_id": 1, "duration_minutes": 1, "seats_available": 1 } },
-            { "keys": { "equipment.plane_type": 1 } }
+            { "keys": { "equipment.$**": 1 } },
+            { "keys": { "passengers.$**": 1 } }
         ]
     }
 ]

@@ -23,6 +23,7 @@ class Bcolors:
     # Grays/Neutrals (for less critical info, or default text)
     GRAY_TEXT = '\033[38;5;242m' # A medium gray, similar to aqua-900 text but readable
     LIGHT_GRAY_TEXT = '\033[38;5;250m' # Very light gray for subtle details
+    ORANGE = '\033[38;5;208m'
 
     # Aqua Shades for structure and main info
     # Lightest to Darkest Aqua/Green Shades
@@ -40,13 +41,14 @@ class Bcolors:
     # Specific use cases
     HEADER = AQUA_600     # Headers for sections
     STATS_HEADER = AQUA_700 # Header for each Collection Stats
-    WORKLOAD_SETTING = GRAY_TEXT # Workload setting names
+    WORKLOAD_SETTING = AQUA_600 # Workload setting names
     SETTING_VALUE = AQUA_700 # The workload setting value
     HIGHLIGHT = AQUA_500  # Main throughput numbers, key results
     SECONDARY_HIGHLIGHT = LIGHT_GRAY_TEXT # This can be used to highlight something, but not as bright
     ACCENT = AQUA_600     # Table borders, separation lines
-    WARNING = '\033[38;5;208m' # Orange for warnings (standard ANSI orange/gold)
+    WARNING = ORANGE # Orange for warnings (standard ANSI orange/gold)
     ERROR = '\033[38;5;196m'   # Red for errors (standard ANSI red)
+    DISABLED = GRAY_TEXT   # Red for things that are disabled (standard ANSI red)
 
     # Styles
     ENDC = '\033[0m'       # Reset color
@@ -293,6 +295,8 @@ def start_process(args, process_id, completed_processes, output_queue, collectio
 async def main_workload_async(args, collection_def, user_queries, specified_duration_str):
     await init_async() # Main process connects
     created_collections = await app.create_collection(collection_def, args.collections, args.recreate)
+
+    app.pre_cache_all_queries(args,collection_def) # Pre-populate the query cache
     await close_client_async() # Main process disconnects BEFORE forking
     ratios = app.workload_ratio_config(args)
 

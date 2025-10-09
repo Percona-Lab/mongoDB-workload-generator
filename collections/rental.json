@@ -86,6 +86,26 @@
                 "keys": {
                     "license_plate": 1
                 }
+            },
+            {
+                "keys": {
+                    "email": 1
+                }
+            },
+            {
+                "keys": {
+                    "drivers.$**": 1
+                }
+            },
+            {
+                "keys": {
+                    "options.$**": 1
+                }
+            },
+            {
+                "keys": {
+                    "rental_info.$**": 1
+                }
             }
         ]
     }

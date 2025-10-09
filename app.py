@@ -169,6 +169,40 @@ async def pre_compute_collection_metadata(args, created_collections, collection_
             "coll_entry": coll_entry
         }
 
+
+##########################################################################################################
+# Iterate through collection definitions and calls the query template generators once for each collection. 
+# This will fully populate the QUERY_TEMPLATE_CACHE before any worker process starts
+##########################################################################################################
+def pre_cache_all_queries(args,collection_def):
+    """
+    Iterates through all collection definitions and calls the query generation
+    functions to populate the cache before the workload starts.
+    """
+    if args.debug:
+        logging.debug("Pre-populating the query template cache for all collections...")
+    for coll_entry in collection_def:
+        field_schema = coll_entry.get("fieldName", {})
+        if not field_schema:
+            logging.warning(f"Skipping query caching for {coll_entry.get('collectionName')} due to missing 'fieldName' schema.")
+            continue
+
+        field_names = list(field_schema.keys())
+        field_types = [v.get('type', 'string') for v in field_schema.values()]
+        primary_key = get_primary_key_from_collection(coll_entry)
+        shard_keys = list(coll_entry.get("shardConfig", {}).get("key", {}).keys())
+
+        # Cache templates for both optimized and unoptimized modes to cover all possibilities
+        for optimized_mode in [True, False]:
+            mongodbLoadQueries.select_queries(field_names, field_types, primary_key, optimized_mode)
+            mongodbLoadQueries.update_queries(field_names, field_types, primary_key, shard_keys, optimized_mode)
+            mongodbLoadQueries.delete_queries(field_names, field_types, primary_key, optimized_mode)
+
+    if args.debug:
+        logging.debug(f"Query cache populated. Total cached template sets: {len(mongodbLoadQueries.QUERY_TEMPLATE_CACHE)}")
+
+
+
 ####################
 # Create collections
 ####################
@@ -682,10 +716,10 @@ def log_workload_config(collection_def, args, shard_enabled, workload_length, wo
     {Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})
     {Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC} ({collection_info})
-    {Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{"Disabled" if args.custom_queries else args.collections}{Bcolors.ENDC}
+    {Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{(Bcolors.DISABLED if args.custom_queries else Bcolors.SETTING_VALUE)}{"Disabled" if args.custom_queries else args.collections}{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{shard_enabled}{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.batch_size}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Optimized workload:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.optimized}{Bcolors.ENDC}
+    {Bcolors.WORKLOAD_SETTING}Optimized workload:{Bcolors.ENDC} {Bcolors.BOLD}{(Bcolors.DISABLED if args.custom_queries else Bcolors.SETTING_VALUE)}{"Disabled" if args.custom_queries else args.optimized}{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}Workload ratio:{Bcolors.ENDC} ({Bcolors.BOLD}{Bcolors.SETTING_VALUE}SELECTS: {int(round(float(workload_ratios['select_ratio']), 0))}% {Bcolors.ENDC}|{Bcolors.BOLD}{Bcolors.SETTING_VALUE} INSERTS: {int(round(float(workload_ratios['insert_ratio']), 0))}% {Bcolors.ENDC}|{Bcolors.BOLD}{Bcolors.SETTING_VALUE} UPDATES: {int(round(float(workload_ratios['update_ratio']), 0))}% {Bcolors.ENDC}|{Bcolors.BOLD}{Bcolors.SETTING_VALUE} DELETES: {int(round(float(workload_ratios['delete_ratio']), 0))}%{Bcolors.ENDC})
     {Bcolors.WORKLOAD_SETTING}Report frequency:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.report_interval} seconds{Bcolors.ENDC}
     {Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}\n

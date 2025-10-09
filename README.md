@@ -205,7 +205,11 @@ To load files from custom locations supply the full paths, as shown in the examp
 --collection_definition /tmp/collections --custom_queries /tmp/queries
 ```
 
-NOTE: When using your own custom queries the `--optimized` parameter is ignored, since you control how your queries are written. You can either write optimized, ineffective queries or both. You can also create separate query definition files with optimized queries and ineffective queries, the use case is your choice..
+**NOTE**: When using your own custom queries the `--optimized` parameter is ignored, since you control how your queries are written. You can either write optimized, ineffective queries or both. You can also create separate query definition files with optimized queries and ineffective queries, the use case is your choice.
+
+Random Workload (when you call the workload without passing `--custom_queries`): When you don't provide a custom query file, you can use the `--optimized` flag to tell the application whether to generate efficient queries (like updateOne, deleteOne, count_documents) or a mix of efficient and less efficient ones (like updateMany, deleteMany, find).
+
+Custom Workload (when you call the workload with `--custom_queries`): When you provide your own JSON query file, you have full control. The script executes the exact command specified in the "operation" field of each query object in your file. The `--optimized` flag is completely ignored.
 
 ## Usage
 

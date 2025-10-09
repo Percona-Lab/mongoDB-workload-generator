@@ -2,7 +2,7 @@
     {
         "database": "airline",
         "collection": "flights",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "flight_id": "<pk>"
         },
@@ -26,7 +26,7 @@
     {
         "database": "airline",
         "collection": "flights",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "flight_id": "<pk>",
             "gate": "<gate>"
@@ -43,7 +43,7 @@
     {
         "database": "airline",
         "collection": "flights",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "duration_minutes": {
                 "flight_id": "<pk>",

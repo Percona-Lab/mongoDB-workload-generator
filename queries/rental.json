@@ -2,9 +2,9 @@
     {
         "database": "rental",
         "collection": "cars",
-        "operation": "find",
+        "operation": "count",
         "filter": {
-            "rental_id": "<int>",
+            "rental_id": "<pk>",
             "car_type": "<car_type>"
         },
         "limit": 5
@@ -14,13 +14,13 @@
         "collection": "cars",
         "operation": "count",
         "filter": {
-            "rental_id": "<int>"
+            "rental_id": "<pk>"
         }
     },
     {
         "database": "rental",
         "collection": "cars",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "license_plate": "<license_plate>"
         },
@@ -29,7 +29,7 @@
     {
         "database": "rental",
         "collection": "cars",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "price_usd": {
                 "$lt": "<double>"
@@ -40,20 +40,7 @@
     {
         "database": "rental",
         "collection": "cars",
-        "operation": "find",
-        "filter": {
-            "drivers": {
-                "$in": [
-                    "<name>"
-                ]
-            }
-        },
-        "limit": 5
-    },
-    {
-        "database": "rental",
-        "collection": "cars",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "rental_info.pickup_location": "<city>",
             "rental_info.dropoff_location": "<city>"
@@ -63,7 +50,7 @@
     {
         "database": "rental",
         "collection": "cars",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "rental_info.rental_date": {
                 "$gte": "<date>"
@@ -77,7 +64,7 @@
     {
         "database": "rental",
         "collection": "cars",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "options.gps": "<bool>"
         },
@@ -86,43 +73,11 @@
     {
         "database": "rental",
         "collection": "cars",
-        "operation": "find",
+        "operation": "count",
         "filter": {
             "email": "<email>"
         },
         "limit": 5
-    },
-    {
-        "_comment": "Shard-aware updateOne: This is an efficient, targeted update because it includes the rental_id shard key in the filter.",
-        "database": "rental",
-        "collection": "cars",
-        "operation": "updateOne",
-        "filter": {
-            "rental_id": "<pk>"
-        },
-        "update": {
-            "$set": {
-                "options.insurance": "premium"
-            },
-            "$inc": {
-                "price_usd": 25.50
-            }
-        }
-    },
-    {
-        "_comment": "Un-optimized updateMany: This is a scatter-gather query. It will be broadcast to all shards because the shard key is not in the filter.",
-        "database": "rental",
-        "collection": "cars",
-        "operation": "updateMany",
-        "filter": {
-            "car_type": "<car_type>",
-            "options.gps": false
-        },
-        "update": {
-            "$set": {
-                "notes": "Pending GPS hardware installation."
-            }
-        }
     },
     {
         "_comment": "Shard-aware updateOne to add an element to an array.",
