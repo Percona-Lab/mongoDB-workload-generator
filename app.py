@@ -18,12 +18,43 @@ from urllib.parse import urlencode
 from multiprocessing import Lock
 from mongodbCreds import dbconfig
 from mongo_client import get_client, init_async
+import mongo_client
 import args as args_module
 from pymongo.errors import PyMongoError # type: ignore
 import custom_query_executor
 import mongodbLoadQueries
-from mongodbWorkload import Bcolors
+from colors import Bcolors
 import os
+
+import generic_workload # Import the new module at the top of app.py
+
+###################
+# Generic workload
+###################
+async def start_generic_workload_async(args, target_ids, output_queue, stop_event):
+    """
+    The entry point for a single process running the generic workload.
+    """
+    await mongo_client.init_async(args)
+    client = mongo_client.get_client()
+    collection = client[args.db][args.collection]
+    
+    # Create worker coroutines that will report their own progress
+    workers = [
+        asyncio.create_task(generic_workload.thread_worker(
+            collection, 
+            target_ids, 
+            stop_event, 
+            output_queue, 
+            args.report_interval
+        ))
+        for _ in range(args.threads)
+    ]
+    
+    # Simply wait for the workers to be stopped by the main process
+    await asyncio.gather(*workers)
+    
+    await mongo_client.close_client_async()
 
 fake = Faker()
 fake.add_provider(CustomProvider)
@@ -68,6 +99,8 @@ def requires_aircraft_context(field_schema):
     if "seats_available" in field_schema:
         return True
     return False
+
+
 
 ######################################################################
 # Function to prepend shard key to each index if not already included

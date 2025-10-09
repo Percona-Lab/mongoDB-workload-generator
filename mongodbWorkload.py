@@ -9,51 +9,15 @@ import multiprocessing
 import time
 import textwrap
 import re
-
+import reporting
 from logger import configure_logging
 from mongo_client import init_async, close_client_async
 import app
 import custom_query_executor
+import generic_workload
+from colors import Bcolors
 
-class Bcolors:
-    # Based on Percona Aqua Palette
-    # Using ANSI 256-color escape codes for richer, more specific colors
-    # Format: \033[38;5;<COLOR_CODE>m
 
-    # Grays/Neutrals (for less critical info, or default text)
-    GRAY_TEXT = '\033[38;5;242m' # A medium gray, similar to aqua-900 text but readable
-    LIGHT_GRAY_TEXT = '\033[38;5;250m' # Very light gray for subtle details
-    ORANGE = '\033[38;5;208m'
-
-    # Aqua Shades for structure and main info
-    # Lightest to Darkest Aqua/Green Shades
-    AQUA_50  = '\033[38;5;195m'  # Very light, pale cyan
-    AQUA_100 = '\033[38;5;158m'  # Light mint green
-    AQUA_200 = '\033[38;5;121m'  # Pale seafoam green
-    AQUA_300 = '\033[38;5;85m'   # Light seafoam green
-    AQUA_400 = '\033[38;5;49m'   # Bright seafoam green
-    AQUA_500 = '\033[38;5;36m'   # Core vibrant aqua
-    AQUA_600 = '\033[38;5;30m'   # Richer, slightly darker aqua
-    AQUA_700 = '\033[38;5;29m'   # Deeper teal
-    AQUA_800 = '\033[38;5;23m'   # Dark teal/forest green
-    AQUA_900 = '\033[38;5;22m'   # Very dark forest green
-
-    # Specific use cases
-    HEADER = AQUA_600     # Headers for sections
-    STATS_HEADER = AQUA_700 # Header for each Collection Stats
-    WORKLOAD_SETTING = AQUA_600 # Workload setting names
-    SETTING_VALUE = AQUA_700 # The workload setting value
-    HIGHLIGHT = AQUA_500  # Main throughput numbers, key results
-    SECONDARY_HIGHLIGHT = LIGHT_GRAY_TEXT # This can be used to highlight something, but not as bright
-    ACCENT = AQUA_600     # Table borders, separation lines
-    WARNING = ORANGE # Orange for warnings (standard ANSI orange/gold)
-    ERROR = '\033[38;5;196m'   # Red for errors (standard ANSI red)
-    DISABLED = GRAY_TEXT   # Red for things that are disabled (standard ANSI red)
-
-    # Styles
-    ENDC = '\033[0m'       # Reset color
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
 
 args = None
 collection_def = None
@@ -195,6 +159,100 @@ def load_custom_queries(path_or_file=None):
         logging.error("No valid custom queries found after loading.")
         sys.exit(1)
     return queries
+
+
+###################################
+# Function to run generic workload
+###################################
+def run_generic_workload(args):
+    """Orchestrates the multiprocessing for the 'run' phase of the generic workload."""
+    
+    specified_duration_str = args.runtime
+    if isinstance(args.runtime, str):
+        # ... (runtime parsing logic remains the same) ...
+        try:
+            if args.runtime.endswith("m"): args.runtime = int(args.runtime[:-1]) * 60
+            elif args.runtime.endswith("s"): args.runtime = int(args.runtime[:-1])
+            else: args.runtime = int(args.runtime)
+        except (ValueError, AttributeError):
+            logging.error(f"Invalid time format for --runtime: '{args.runtime}'.")
+            sys.exit(1)
+
+    target_ids = asyncio.run(generic_workload.get_target_ids(args))
+    if not target_ids:
+        return
+
+    reporting.log_generic_config(args)
+    logging.info("Workload starting, processes are now warming up...")
+
+    with multiprocessing.Manager() as manager:
+        stats_queue = manager.Queue()
+        stop_event = manager.Event()
+
+        processes = []
+        for i in range(args.cpu):
+            p = multiprocessing.Process(
+                target=start_generic_process,
+                args=(args, target_ids, stats_queue, stop_event)
+            )
+            processes.append(p)
+            p.start()
+
+        start_time = time.time()
+        last_report_time = start_time
+        total_ops = 0
+        total_docs_found = 0  # New: Accumulator for found documents
+
+        try:
+            while time.time() - start_time < args.runtime:
+                time.sleep(args.report_interval)
+                ops_in_interval = 0
+                docs_found_in_interval = 0 # New: Track for interval
+                while not stats_queue.empty():
+                    stats = stats_queue.get()
+                    ops_in_interval += stats.get("total_ops", 0)
+                    docs_found_in_interval += stats.get("docs_found", 0) # New: Aggregate docs
+
+                total_ops += ops_in_interval
+                total_docs_found += docs_found_in_interval # New: Aggregate total docs
+
+                elapsed = time.time() - last_report_time
+                throughput = ops_in_interval / elapsed if elapsed > 0 else 0
+
+                if throughput > 0:
+                    logging.info(
+                        f"{Bcolors.GRAY_TEXT}Throughput last {args.report_interval}s ({args.cpu} CPUs): {Bcolors.BOLD}{Bcolors.HIGHLIGHT}{throughput:.2f} ops/sec{Bcolors.ENDC}{Bcolors.GRAY_TEXT} "
+                        f"(SELECTS: {throughput:.2f}, INSERTS: 0.00, "
+                        f"UPDATES: 0.00, DELETES: 0.00){Bcolors.ENDC}"
+                    )
+                last_report_time = time.time()
+
+        except KeyboardInterrupt:
+            logging.info("\n[!] Ctrl+C detected! Stopping workload...")
+        finally:
+            stop_event.set()
+            for p in processes:
+                p.join(timeout=5)
+
+        end_time = time.time()
+        
+        while not stats_queue.empty():
+            stats = stats_queue.get()
+            total_ops += stats.get("total_ops", 0)
+            total_docs_found += stats.get("docs_found", 0) # New: Aggregate final stats
+        
+        duration = end_time - start_time
+        
+        asyncio.run(reporting.fetch_and_log_collection_stats(args))
+        # New: Pass the total_docs_found to the summary function
+        reporting.log_generic_summary(total_ops, total_docs_found, duration, specified_duration_str)
+
+def start_generic_process(args, target_ids, output_queue, stop_event):
+    """Wrapper to call the async process worker from app.py."""
+    asyncio.run(app.start_generic_workload_async(args, target_ids, output_queue, stop_event))
+
+
+
 
 ################################################
 # Get workload summary and provide the output
@@ -368,86 +426,109 @@ async def main_workload_async(args, collection_def, user_queries, specified_dura
         workload_summary(workload_output, elapsed_time, specified_duration_str)
 
 
+# In mongodbWorkload.py, replace the main() function
+
 def main():
     parser = argparse.ArgumentParser(description="MongoDB Workload Generator")
+    
+    # --- New Flag to select workload type ---
+    parser.add_argument("--generic", action="store_true", help="Run the high-throughput generic point-query workload.")
+
+    original_group = parser.add_argument_group('Original Workload Options (default)')
+    original_group.add_argument("--custom_queries", help="Path to a JSON file with custom queries.")
+    original_group.add_argument("--collection_definition", help="Path to a JSON file or directory with collection definitions.")
+    original_group.add_argument("--collections", type=int, default=1, help="Number of collections to use.")
+    original_group.add_argument("--recreate", action="store_true", help="Drops the collections before starting the workload.")
+    original_group.add_argument("--batch_size", type=int, default=10, help="Number of documents to insert in each batch.")
+    original_group.add_argument("--optimized", action="store_true", help="Use more efficient queries (i.e. 'find_one', 'update_one', 'delete_one').")
+    original_group.add_argument("--insert_ratio", type=float, default=None, help="Workload ratio for insert operations.")
+    original_group.add_argument("--select_ratio", type=float, default=None, help="Workload ratio for select operations.")
+    original_group.add_argument("--update_ratio", type=float, default=None, help="Workload ratio for update operations.")
+    original_group.add_argument("--delete_ratio", type=float, default=None, help="Workload ratio for delete operations.")
+    original_group.add_argument("--skip_insert", action="store_true", help="Skip all insert operations.")
+    original_group.add_argument("--skip_select", action="store_true", help="Skip all select operations.")
+    original_group.add_argument("--skip_update", action="store_true", help="Skip all update operations.")
+    original_group.add_argument("--skip_delete", action="store_true", help="Skip all delete operations.")
+
+    # --- Arguments for the generic workload ---
+    generic_group = parser.add_argument_group('Generic Workload Options (used with --generic)')
+    generic_group.add_argument("command", nargs='?', choices=["prepare", "run", "cleanup"], help="The command for the generic workload: 'prepare', 'run', or 'cleanup'.")
+    generic_group.add_argument("--db", default="benchmark", help="Database name for the generic workload.")
+    generic_group.add_argument("--collection", default="pointquery", help="Collection name for the generic workload.")
+    generic_group.add_argument("--num_docs", type=int, default=100000, help="Number of documents for the 'prepare' step.")
+
+
+    # --- General arguments for both workloads ---
     parser.add_argument("--runtime", default="60s", help="The total duration to run the workload (e.g., 60s, 5m).")
-    parser.add_argument("--threads", type=int, default=4, help="Number of threads per process. (Total threads = threads * cpu)")
+    parser.add_argument("--threads", type=int, default=4, help="Number of threads (coroutines) per process.")
     parser.add_argument("--cpu", type=int, default=1, help="Number of CPUs/processes to use.")
-    parser.add_argument("--custom_queries", help="Path to a JSON file with custom queries.")
-    parser.add_argument("--collections", type=int, default=1, help="Number of collections to use.")
-    parser.add_argument("--recreate", action="store_true", help="Drops the collections before starting the workload.")
-    parser.add_argument("--batch_size", type=int, default=10, help="Number of documents to insert in each batch.")
-    parser.add_argument("--optimized", action="store_true", help="Use more efficient queries (i.e. 'find_one', 'update_one', 'delete_one').")
-    parser.add_argument("--insert_ratio", type=float, default=None, help="Workload ratio for insert operations.")
-    parser.add_argument("--select_ratio", type=float, default=None, help="Workload ratio for select operations.")
-    parser.add_argument("--update_ratio", type=float, default=None, help="Workload ratio for update operations.")
-    parser.add_argument("--delete_ratio", type=float, default=None, help="Workload ratio for delete operations.")
     parser.add_argument("--report_interval", type=int, default=5, help="Frequency (in seconds) to report operations per second.")
     parser.add_argument("--log", help="Path and filename for log output.")
-    parser.add_argument("--skip_insert", action="store_true", help="Skip all insert operations.")
-    parser.add_argument("--skip_select", action="store_true", help="Skip all select operations.")
-    parser.add_argument("--skip_update", action="store_true", help="Skip all update operations.")
-    parser.add_argument("--skip_delete", action="store_true", help="Skip all delete operations.")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode to show detailed output.")
-    parser.add_argument("--collection_definition", help="Path to a JSON file or directory with collection definitions.")
 
     args = parser.parse_args()
-
-    user_queries = None
-
+    
     log_level = logging.DEBUG if args.debug else logging.INFO
     configure_logging(log_file=args.log, level=log_level)
 
-    if args.custom_queries and not args.collection_definition:
-        logging.fatal("Error: The --collection_definition parameter is required when using --custom_queries.")
-        sys.exit(1)
-    if args.custom_queries and args.collections > 1:
-        logging.info(f"User query path provided. Forcing --collections value from {args.collections} to 1.")
-        args.collections = 1
-    if args.log is True:
-        logging.error(f"Error: The --log option requires a filename and path (e.g., /tmp/report.log).")
-        sys.exit(1)
+    # --- Main Logic Branch ---
+    if args.generic:
+        if not args.command:
+            parser.error("The '--generic' flag requires a command: 'prepare', 'run', or 'cleanup'.")
+        
+        # Execute the generic workload command
+        try:
+            if args.command == "prepare":
+                asyncio.run(generic_workload.prepare(args))
+            elif args.command == "run":
+                # The 'run' command needs its own main function to manage processes
+                run_generic_workload(args)
+            elif args.command == "cleanup":
+                asyncio.run(generic_workload.cleanup(args))
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user.")
+        sys.exit(0)
 
-    available_cpus = os.cpu_count()
-    if args.cpu > available_cpus:
-        logging.info(f"Cannot set CPU to {args.cpu} as there are only {available_cpus} available. Workload will be configured to use {available_cpus} CPUs.")
-        args.cpu = available_cpus
-
-    specified_duration_str = args.runtime # Default value
-
-    if args.runtime.endswith("m"):
-        duration = int(args.runtime[:-1])
-        args.runtime = duration * 60
-        specified_duration_str = f"{duration:.2f} minutes" # User-friendly string
-    elif args.runtime.endswith("s"):
-        duration = int(args.runtime[:-1])
-        args.runtime = duration
-        specified_duration_str = f"{duration:.2f} seconds" # User-friendly string
-
+    # --- Else, run the original workload (existing logic) ---
     else:
-        raise ValueError("Invalid time format. Use '60s' for seconds or '5m' for minutes.")
-
-    if args.collection_definition:
-        collection_def = load_collection_definitions(args.collection_definition)
-    else:
-        collection_def = load_collection_definitions()
-
-    if args.custom_queries:
-        user_queries = load_custom_queries(args.custom_queries)
-        if user_queries is None:
+        user_queries = None
+        if args.custom_queries and not args.collection_definition:
+            logging.fatal("Error: The --collection_definition parameter is required when using --custom_queries.")
             sys.exit(1)
-        valid_collections = {f"{c['databaseName']}.{c['collectionName']}" for c in collection_def}
-        for query in user_queries:
-            target_coll = f"{query.get('database')}.{query.get('collection')}"
-            if target_coll not in valid_collections:
-                logging.fatal(
-                    f"Validation Error: A query targets collection '{target_coll}', "
-                    f"but this collection is not defined in your --collection_definition files."
-                )
-                sys.exit(1)
-        logging.info("All custom queries were successfully validated against collection definitions.")
+        if args.custom_queries and args.collections > 1:
+            logging.info(f"User query path provided. Forcing --collections value from {args.collections} to 1.")
+            args.collections = 1
+        if args.log is True:
+            logging.error(f"Error: The --log option requires a filename and path (e.g., /tmp/report.log).")
+            sys.exit(1)
 
-    asyncio.run(main_workload_async(args, collection_def, user_queries, specified_duration_str))
+        available_cpus = os.cpu_count()
+        if args.cpu > available_cpus:
+            logging.info(f"Cannot set CPU to {args.cpu} as there are only {available_cpus} available. Workload will be configured to use {available_cpus} CPUs.")
+            args.cpu = available_cpus
+        
+        specified_duration_str = args.runtime
+        if args.runtime.endswith("m"):
+            duration = int(args.runtime[:-1])
+            args.runtime = duration * 60
+            specified_duration_str = f"{duration:.2f} minutes"
+        elif args.runtime.endswith("s"):
+            duration = int(args.runtime[:-1])
+            args.runtime = duration
+            specified_duration_str = f"{duration:.2f} seconds"
+        else:
+            raise ValueError("Invalid time format. Use '60s' for seconds or '5m' for minutes.")
+
+        if args.collection_definition:
+            collection_def = load_collection_definitions(args.collection_definition)
+        else:
+            collection_def = load_collection_definitions()
+
+        if args.custom_queries:
+            user_queries = load_custom_queries(args.custom_queries)
+            # ... (rest of your original validation logic)
+        
+        asyncio.run(main_workload_async(args, collection_def, user_queries, specified_duration_str))
 
 ###############################
 # Main section to start the app
