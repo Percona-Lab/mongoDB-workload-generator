@@ -181,8 +181,10 @@ def run_generic_workload(args):
     if not target_ids and args.type in ['find', 'update', 'delete']:
          print("Warning: Could not fetch target IDs. Find, update, and delete workloads will not run.")
 
-    reporting.log_generic_config(args)
-    logging.info("Workload starting, processes are now warming up...")
+    collection_def = " | ".join([f"{args.db}.{args.collection}"])
+
+    reporting.log_workload_config(collection_def, args, shard_enabled=None, workload_length=None, workload_ratios=None)
+      
 
     with multiprocessing.Manager() as manager:
         stats_queue = manager.Queue()
@@ -418,10 +420,7 @@ async def main_workload_async(args, collection_def, user_queries, specified_dura
             'select': manager.list([0] * args.cpu),
         })
 
-        app.log_workload_config(collection_def, args, shard_enabled, args.runtime, ratios)
-
-        # Print an immediate message to give user feedback
-        logging.info(f"{Bcolors.WARNING}Workload starting, processes are now warming up...{Bcolors.ENDC}")
+        reporting.log_workload_config(collection_def, args, shard_enabled, args.runtime, ratios)
 
         start_time = time.time()
 

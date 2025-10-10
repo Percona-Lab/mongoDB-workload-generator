@@ -2,33 +2,113 @@ import textwrap
 import logging
 import asyncio
 import time
-
-# Reuse your existing modules
 import mongo_client
 from colors import Bcolors
 
-def log_generic_config(args):
-    """Prints the initial configuration block for the generic workload."""
+
+
+def log_workload_config(collection_def, args, shard_enabled=None, workload_length=None, workload_ratios=None):
+    """Prints the initial configuration block for any workload."""
     
-    # Convert runtime back to a user-friendly string for display
     if isinstance(args.runtime, int):
         duration_str = f"{args.runtime} seconds"
     else:
         duration_str = args.runtime
 
+    collection_info = "N/A"  # Initialize with a default value for invalid types.
+
+    # First, handle the string case directly.
+    if isinstance(collection_def, str):
+        collection_info = collection_def
+        
+    # If a single dictionary make it into a list so it can be processed the same way.
+    elif isinstance(collection_def, dict):
+        collection_def = [collection_def] # Convert dict to a list with one item
+
+    # Now, if the input was a list (or was just converted from a dict), process it.
+    if isinstance(collection_def, list):
+        collection_info = " | ".join([
+            f"{item.get('databaseName', '?')}.{item.get('collectionName', '?')}" 
+            for item in collection_def
+        ])
+
+    if shard_enabled:
+        status_color = Bcolors.SETTING_VALUE
+        status_text = shard_enabled
+    else:
+        status_color = Bcolors.DISABLED
+        status_text = "Disabled"
+
+
+    if args.custom_queries or args.generic:
+        instances_color = Bcolors.DISABLED
+        instances_text = "Disabled"
+    else:
+        instances_color = Bcolors.SETTING_VALUE
+        instances_text = args.collections
+
+    if args.generic:
+        batch_color = Bcolors.DISABLED
+        batch_size = "Disabled"
+    else:
+        batch_color = Bcolors.SETTING_VALUE
+        batch_size = args.batch_size
+           
+
+    settings = [
+        f"{Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{status_color}{status_text}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC}{Bcolors.BOLD}{Bcolors.SETTING_VALUE}({collection_info}){Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{batch_color}{batch_size}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{instances_color}{instances_text}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Duration:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{duration_str}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})",
+        f"{Bcolors.WORKLOAD_SETTING}Report frequency:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.report_interval} seconds{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}"
+    ]
+
+    
+    
+    workload_type_str = ""
+    if args.generic:
+        workload_type_str = "Generic Point-Query"
+        optimized_status = "Disabled"
+        optimized_color = Bcolors.DISABLED 
+    elif args.custom_queries or args.collection_definition:
+        workload_type_str = "Custom"
+        optimized_status = "Disabled"
+        optimized_color = Bcolors.DISABLED
+    else:
+        workload_type_str = "Default" # Default original workload
+        optimized_status = args.optimized
+        optimized_color = Bcolors.SETTING_VALUE
+
+  
+    settings.insert(0, f"{Bcolors.WORKLOAD_SETTING}Workload Type:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{workload_type_str}{Bcolors.ENDC}")
+    settings.insert(1, f"{Bcolors.WORKLOAD_SETTING}Optimized workload:{Bcolors.ENDC} {Bcolors.BOLD}{optimized_color}{optimized_status}{Bcolors.ENDC}")
+       
+    if workload_ratios:
+        ratio_str = (f"({Bcolors.BOLD}{Bcolors.SETTING_VALUE}SELECTS: {int(round(float(workload_ratios['select_ratio']), 0))}% {Bcolors.ENDC}|"
+                     f"{Bcolors.BOLD}{Bcolors.SETTING_VALUE} INSERTS: {int(round(float(workload_ratios['insert_ratio']), 0))}% {Bcolors.ENDC}|"
+                     f"{Bcolors.BOLD}{Bcolors.SETTING_VALUE} UPDATES: {int(round(float(workload_ratios['update_ratio']), 0))}% {Bcolors.ENDC}|"
+                     f"{Bcolors.BOLD}{Bcolors.SETTING_VALUE} DELETES: {int(round(float(workload_ratios['delete_ratio']), 0))}%{Bcolors.ENDC})")
+        settings.insert(2, f"{Bcolors.WORKLOAD_SETTING}Workload ratio:{Bcolors.ENDC} {ratio_str}")
+    else:
+        ratio_status = "Disabled"
+        ratio_color = Bcolors.DISABLED
+        settings.insert(2, f"{Bcolors.WORKLOAD_SETTING}Workload ratio:{Bcolors.ENDC} {Bcolors.BOLD}{ratio_color}{ratio_status}{Bcolors.ENDC}")
+
+
+
     table_width = 115
-    config_details = textwrap.dedent(f"""\n
-    {Bcolors.WORKLOAD_SETTING}Workload Type:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}Generic Point-Query{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Duration:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{duration_str}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})
-    {Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.db}.{args.collection}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Report frequency:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.report_interval} seconds{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}\n
-    {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}
-    {Bcolors.BOLD}{Bcolors.HEADER}{' Workload Started':^{table_width - 2}}{Bcolors.ENDC}
-    {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}\n""")
+    config_details = "\n" + "\n".join(settings)
+    config_details += f"""\n
+{Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}
+{Bcolors.BOLD}{Bcolors.HEADER}{' Live Workload Monitoring ':^{table_width - 2}}{Bcolors.ENDC}
+{Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}\n"""
     logging.info(config_details)
+    logging.info(f"{Bcolors.WARNING}Workload starting...{Bcolors.ENDC}")
+
 
 
 async def fetch_and_log_collection_stats(args):

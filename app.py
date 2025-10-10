@@ -50,15 +50,12 @@ async def start_generic_workload_async(args, target_ids, output_queue, stop_even
     tasks = []
     
     if workload_type == 'mixed':
-        print("Running a MIXED workload (find, update, delete, insert)...")
-        # Now includes the insert worker
         all_workers = list(worker_map.values())
         num_workers = len(all_workers)
         
         for i in range(args.threads):
             worker_function = all_workers[i % num_workers]
             
-            # The insert worker has a different signature (no target_ids)
             if worker_function == generic_workload.insert_thread_worker:
                 task = asyncio.create_task(worker_function(
                     collection=collection,
@@ -80,7 +77,7 @@ async def start_generic_workload_async(args, target_ids, output_queue, stop_even
         if not worker_function:
             raise ValueError(f"Invalid workload type specified: {workload_type}")
         
-        print(f"Running a single workload: {workload_type}...")
+        # print(f"Running a single workload: {workload_type}...")
         for _ in range(args.threads):
             if worker_function == generic_workload.insert_thread_worker:
                 task = asyncio.create_task(worker_function(
@@ -791,36 +788,6 @@ def workload_ratio_config(args):
     args.delete_ratio = ratios["delete_ratio"]
     args.select_ratio = ratios["select_ratio"]
     return ratios
-
-###############################
-# Output workload configuration
-###############################
-def log_workload_config(collection_def, args, shard_enabled, workload_length, workload_ratios):
-
-    if isinstance(collection_def, dict):
-        collection_def = [collection_def]
-
-    collection_info = " | ".join(
-    [f"{Bcolors.BOLD}{Bcolors.SETTING_VALUE}{item['databaseName']}.{item['collectionName']}{Bcolors.ENDC}" for item in collection_def]
-    )
-
-    table_width = 115
-    workload_details = textwrap.dedent(f"""\n
-    {Bcolors.WORKLOAD_SETTING}Duration:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{workload_length} seconds{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})
-    {Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC} ({collection_info})
-    {Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{(Bcolors.DISABLED if args.custom_queries else Bcolors.SETTING_VALUE)}{"Disabled" if args.custom_queries else args.collections}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{shard_enabled}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.batch_size}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Optimized workload:{Bcolors.ENDC} {Bcolors.BOLD}{(Bcolors.DISABLED if args.custom_queries else Bcolors.SETTING_VALUE)}{"Disabled" if args.custom_queries else args.optimized}{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Workload ratio:{Bcolors.ENDC} ({Bcolors.BOLD}{Bcolors.SETTING_VALUE}SELECTS: {int(round(float(workload_ratios['select_ratio']), 0))}% {Bcolors.ENDC}|{Bcolors.BOLD}{Bcolors.SETTING_VALUE} INSERTS: {int(round(float(workload_ratios['insert_ratio']), 0))}% {Bcolors.ENDC}|{Bcolors.BOLD}{Bcolors.SETTING_VALUE} UPDATES: {int(round(float(workload_ratios['update_ratio']), 0))}% {Bcolors.ENDC}|{Bcolors.BOLD}{Bcolors.SETTING_VALUE} DELETES: {int(round(float(workload_ratios['delete_ratio']), 0))}%{Bcolors.ENDC})
-    {Bcolors.WORKLOAD_SETTING}Report frequency:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.report_interval} seconds{Bcolors.ENDC}
-    {Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}\n
-    {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}
-    {Bcolors.BOLD}{Bcolors.HEADER}{' Workload Started':^{table_width - 2}}{Bcolors.ENDC}
-    {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}\n""")
-    logging.info(workload_details)
 
 ##########################################
 # Calculate operations per report_interval

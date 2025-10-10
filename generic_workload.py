@@ -67,7 +67,7 @@ async def cleanup(args):
 
 async def get_target_ids(args):
     """Fetches a sample of _id values from the prepared collection."""
-    print(f"Fetching a sample of {ID_SAMPLE_SIZE} IDs to use for queries...")
+    # print(f"Fetching a sample of {ID_SAMPLE_SIZE} IDs to use for queries...")
     await mongo_client.init_async(args)
     client = mongo_client.get_client()
     collection = client[args.db][args.collection]
