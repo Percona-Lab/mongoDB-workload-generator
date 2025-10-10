@@ -300,9 +300,6 @@ def start_generic_process(args, target_ids, output_queue, stop_event):
     asyncio.run(app.start_generic_workload_async(args, target_ids, output_queue, stop_event))
 
 
-
-
-
 ################################################
 # Get workload summary and provide the output
 ################################################
@@ -472,18 +469,16 @@ async def main_workload_async(args, collection_def, user_queries, specified_dura
         workload_summary(workload_output, elapsed_time, specified_duration_str)
 
 
-# In mongodbWorkload.py, replace the main() function
-
 def main():
     parser = argparse.ArgumentParser(description="MongoDB Workload Generator")
     
-    # --- New Flag to select workload type ---
     parser.add_argument("--generic", action="store_true", help="Run the high-throughput generic point-query workload.")
 
+    # Arguments for our custom workloads
     original_group = parser.add_argument_group('Default and Custom Workload Options')
     original_group.add_argument("--custom_queries", help="Path to a JSON file with custom queries.")
     original_group.add_argument("--collection_definition", help="Path to a JSON file or directory with collection definitions.")
-    original_group.add_argument("--collections", type=int, default=1, help="Number of collections to use.")
+    original_group.add_argument("--collections", type=int, default=1, help="Number of collections to use. Default: 1")
     original_group.add_argument("--recreate", action="store_true", help="Drops the collections before starting the workload.")
     original_group.add_argument("--optimized", action="store_true", help="Use more efficient queries (i.e. 'find_one', 'update_one', 'delete_one').")
     original_group.add_argument("--insert_ratio", type=float, default=None, help="Workload ratio for insert operations.")
@@ -495,26 +490,25 @@ def main():
     original_group.add_argument("--skip_update", action="store_true", help="Skip all update operations.")
     original_group.add_argument("--skip_delete", action="store_true", help="Skip all delete operations.")
 
-    # --- Arguments for the generic workload ---
+    # Arguments for the generic workload ---
     generic_group = parser.add_argument_group('Generic Workload Options (used with --generic)')
     generic_group.add_argument("command", nargs='?', choices=["prepare", "run", "cleanup"], help="The command for the generic workload: 'prepare', 'run', or 'cleanup'.")
-    generic_group.add_argument("--db", default="benchmark", help="Database name for the generic workload.")
-    generic_group.add_argument("--collection", default="pointquery", help="Collection name for the generic workload.")
-    generic_group.add_argument("--num_docs", type=int, default=100000, help="Number of documents for the 'prepare' step.")
+    generic_group.add_argument("--db", default="generic", help="Database name for the generic workload. Default: generic")
+    generic_group.add_argument("--collection", default="simple", help="Collection name for the generic workload. Default: simple")
+    generic_group.add_argument("--num_docs", type=int, default=100000, help="Number of documents for the 'prepare' step. Default: 100000")
 
     generic_group.add_argument('--type', 
                 type=str, 
                 default='find', 
                 choices=['find', 'update', 'delete', 'insert', 'mixed'], 
-                help='The type of generic workload to run: find, update, delete, insert, or mixed.')
+                help='The type of generic workload to run: find, update, delete, insert, or mixed. Default: find')
 
-
-    # --- General arguments for both workloads ---
-    parser.add_argument("--runtime", default="60s", help="The total duration to run the workload (e.g., 60s, 5m). Default 60s")
-    parser.add_argument("--threads", type=int, default=4, help="Number of threads (coroutines) per process. Default 4")
-    parser.add_argument("--cpu", type=int, default=1, help="Number of CPUs/processes to use. Default 1")
-    parser.add_argument("--batch_size", type=int, default=100, help="Number of documents to insert in each batch. Default 100")
-    parser.add_argument("--report_interval", type=int, default=5, help="Frequency (in seconds) to report operations per second. Default 5s")
+    # General arguments for both workloads ---
+    parser.add_argument("--runtime", default="60s", help="The total duration to run the workload (e.g., 60s, 5m). Default: 60s")
+    parser.add_argument("--threads", type=int, default=4, help="Number of threads (coroutines) per process. Default: 4")
+    parser.add_argument("--cpu", type=int, default=1, help="Number of CPUs/processes to use. Default: 1")
+    parser.add_argument("--batch_size", type=int, default=100, help="Number of documents to insert in each batch. Default: 100")
+    parser.add_argument("--report_interval", type=int, default=5, help="Frequency (in seconds) to report operations per second. Default: 5")
     parser.add_argument("--log", help="Path and filename for log output.")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode to show detailed output.")
 
@@ -523,7 +517,6 @@ def main():
     log_level = logging.DEBUG if args.debug else logging.INFO
     configure_logging(log_file=args.log, level=log_level)
 
-    # --- Main Logic Branch ---
     if args.generic:
         if not args.command:
             parser.error("The '--generic' flag requires a command: 'prepare', 'run', or 'cleanup'.")
@@ -541,7 +534,7 @@ def main():
             print("\nOperation cancelled by user.")
         sys.exit(0)
 
-    # --- Else, run the original workload (existing logic) ---
+    # run the original workload 
     else:
         user_queries = None
         if args.custom_queries and not args.collection_definition:
@@ -578,7 +571,18 @@ def main():
 
         if args.custom_queries:
             user_queries = load_custom_queries(args.custom_queries)
-            # ... (rest of your original validation logic)
+            if user_queries is None:
+                sys.exit(1)
+            valid_collections = {f"{c['databaseName']}.{c['collectionName']}" for c in collection_def}
+            for query in user_queries:
+                target_coll = f"{query.get('database')}.{query.get('collection')}"
+                if target_coll not in valid_collections:
+                    logging.fatal(
+                        f"Validation Error: A query targets collection '{target_coll}', "
+                        f"but this collection is not defined in your --collection_definition files."
+                    )
+                    sys.exit(1)
+            logging.info("All custom queries were successfully validated against collection definitions.")
         
         asyncio.run(main_workload_async(args, collection_def, user_queries, specified_duration_str))
 

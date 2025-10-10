@@ -19,14 +19,13 @@ from multiprocessing import Lock
 from mongodbCreds import dbconfig
 from mongo_client import get_client, init_async
 import mongo_client
-import args as args_module
 from pymongo.errors import PyMongoError # type: ignore
 import custom_query_executor
 import mongodbLoadQueries
 from colors import Bcolors
 import os
 
-import generic_workload # Import the new module at the top of app.py
+import generic_workload 
 
 ###################
 # Generic workload
@@ -495,7 +494,7 @@ async def select_documents(args, base_collection, random_db, random_collection, 
     collection = get_client()[random_db][random_collection]
 
     if prebuilt_query:
-        # --- NEW FAST PATH ---
+        # --- FAST PATH ---
         # If a query is provided, execute it immediately and skip all generation.
         try:
             if args.debug:
@@ -509,7 +508,7 @@ async def select_documents(args, base_collection, random_db, random_collection, 
             logging.error(f"Error selecting from collection {random_db}.{random_collection}: {e}")
         return
 
-    # --- Original logic remains as a fallback ---
+    # --- Original logic fallback ---
     coll_entry = next(
         (item for item in collection_def
          if item.get("databaseName") == random_db and item.get("collectionName") == base_collection),
@@ -530,7 +529,7 @@ async def select_documents(args, base_collection, random_db, random_collection, 
     field_names = list(field_schema.keys())
     field_types = [v.get('type', 'string') for v in field_schema.values()]
     
-    # --- CHANGE: Pass 'optimized' and expect back one list of templates ---
+    # Pass 'optimized' and expect back one list of templates
     templates, projection_templates = mongodbLoadQueries.select_queries(
         field_names, field_types, primary_key, optimized
     )
@@ -554,7 +553,6 @@ async def select_documents(args, base_collection, random_db, random_collection, 
 
         query = mongodbLoadQueries._fill_template(template, value_map)
 
-        # Logic now correctly branches based on the 'optimized' flag
         if optimized:
             if shard_keys:
                 missing_keys = [k for k in shard_keys if k not in query]
@@ -611,7 +609,7 @@ async def update_documents(args, base_collection, random_db, random_collection, 
     field_names = list(field_schema.keys())
     field_types = [v.get('type', 'string') for v in field_schema.values()]
 
-    # --- CHANGE: Pass 'optimized' and receive a single list of templates ---
+    # Pass 'optimized' and receive a single list of templates 
     update_candidates = mongodbLoadQueries.update_queries(
         field_names, field_types, primary_key, shard_keys, optimized
     )
@@ -676,7 +674,7 @@ async def delete_documents(args, base_collection, random_db, random_collection, 
     field_names = list(field_schema.keys())
     field_types = [v.get('type', 'string') for v in field_schema.values()]
 
-    # --- CHANGE: Pass 'optimized' and receive a single list of templates ---
+    # Pass 'optimized' and receive a single list of templates 
     delete_candidates = mongodbLoadQueries.delete_queries(
         field_names, field_types, primary_key, optimized
     )
@@ -927,8 +925,7 @@ async def random_worker_async(args, created_collections, collection_def, stop_ev
             field_schema = metadata.get("field_schema", {})
             primary_key = metadata.get("primary_key", "_id")
             
-            # --- THIS IS THE CORRECTED LINE ---
-            # Pass empty lists instead of None to prevent the TypeError
+            # Pass empty lists instead of None to prevent TypeError
             templates, _ = mongodbLoadQueries.select_queries([], [], primary_key, optimized=True)
             if not templates: continue
             template = templates[0]
@@ -953,7 +950,7 @@ async def random_worker_async(args, created_collections, collection_def, stop_ev
         if args.debug:
             logging.debug("Warm-up complete. Starting main timed workload.")
 
-    # --- MODIFIED WORKER LOOP ---
+    # WORKER LOOP 
     work_start = time.time()
     operations = ["insert", "update", "delete", "select"]
     weights = [insert_ratio, update_ratio, delete_ratio, select_ratio]
@@ -1039,7 +1036,7 @@ async def custom_worker_async(args, created_collections, collection_def, user_qu
             logging.debug("Warm-up complete. Starting main timed workload.")
 
     work_start = time.time()
-    task_batch_size = 100 # How many concurrent tasks to run at once
+    task_batch_size = args.batch_size # How many concurrent tasks to run at once
 
     while time.time() - work_start < runtime and not stop_event.is_set():
         tasks = []

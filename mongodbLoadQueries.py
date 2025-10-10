@@ -9,7 +9,6 @@ def _fill_template(template, value_map):
     Recursively fills placeholders in a query template by working
     directly with the dictionary, which is much safer than string replacement.
     """
-    # query = copy.deepcopy(template)
     query = template.copy()
     def _substitute(obj):
         if isinstance(obj, dict):
@@ -41,7 +40,7 @@ def select_queries(field_names, field_types, pk_field, optimized):
         QUERY_TEMPLATE_CACHE[cache_key] = result
         return result
 
-    # --- This block now only runs in UNOPTIMIZED mode ---
+    # UNOPTIMIZED mode 
     optimized_templates = []
     ineffective_templates = []
     projection_templates = []
@@ -160,7 +159,7 @@ def delete_queries(field_names, field_types, pk_field, optimized):
         QUERY_TEMPLATE_CACHE[cache_key] = templates
         return templates
 
-    # --- This block now only runs in UNOPTIMIZED mode ---
+    # UNOPTIMIZED mode 
     templates = []
     optimized_base = {pk_field: "{pk_value}"}
 

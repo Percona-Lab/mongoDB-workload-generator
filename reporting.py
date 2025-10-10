@@ -6,7 +6,6 @@ import mongo_client
 from colors import Bcolors
 
 
-
 def log_workload_config(collection_def, args, shard_enabled=None, workload_length=None, workload_ratios=None):
     """Prints the initial configuration block for any workload."""
     
@@ -47,14 +46,7 @@ def log_workload_config(collection_def, args, shard_enabled=None, workload_lengt
         instances_color = Bcolors.SETTING_VALUE
         instances_text = args.collections
 
-    # if args.generic:
-    #     batch_color = Bcolors.DISABLED
-    #     batch_size = "Disabled"
-    # else:
-    #     batch_color = Bcolors.SETTING_VALUE
-    #     batch_size = args.batch_size
-           
-
+        
     settings = [
         f"{Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{status_color}{status_text}{Bcolors.ENDC}",
         f"{Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC}{Bcolors.BOLD}{Bcolors.SETTING_VALUE}({collection_info}){Bcolors.ENDC}",
@@ -67,7 +59,6 @@ def log_workload_config(collection_def, args, shard_enabled=None, workload_lengt
         f"{Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}"
     ]
 
-    
     
     workload_type_str = ""
     if args.generic:
@@ -98,8 +89,6 @@ def log_workload_config(collection_def, args, shard_enabled=None, workload_lengt
         ratio_color = Bcolors.DISABLED
         settings.insert(2, f"{Bcolors.WORKLOAD_SETTING}Workload ratio:{Bcolors.ENDC} {Bcolors.BOLD}{ratio_color}{ratio_status}{Bcolors.ENDC}")
 
-
-
     table_width = 115
     config_details = "\n" + "\n".join(settings)
     config_details += f"""\n
@@ -128,7 +117,6 @@ async def fetch_and_log_collection_stats(args):
             }
         }
         
-        # This reuses the same table format as the original workload's summary function
         table = "\n"
         table += f"{Bcolors.ACCENT}{'='*100}{Bcolors.ENDC}\n"
         table += f"{Bcolors.ACCENT}|{Bcolors.BOLD}{Bcolors.HEADER}{'Collection Stats':^98}{Bcolors.ENDC}{Bcolors.ACCENT}| \n"
