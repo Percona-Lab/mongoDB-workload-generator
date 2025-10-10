@@ -480,12 +480,11 @@ def main():
     # --- New Flag to select workload type ---
     parser.add_argument("--generic", action="store_true", help="Run the high-throughput generic point-query workload.")
 
-    original_group = parser.add_argument_group('Original Workload Options (default)')
+    original_group = parser.add_argument_group('Default and Custom Workload Options')
     original_group.add_argument("--custom_queries", help="Path to a JSON file with custom queries.")
     original_group.add_argument("--collection_definition", help="Path to a JSON file or directory with collection definitions.")
     original_group.add_argument("--collections", type=int, default=1, help="Number of collections to use.")
     original_group.add_argument("--recreate", action="store_true", help="Drops the collections before starting the workload.")
-    original_group.add_argument("--batch_size", type=int, default=10, help="Number of documents to insert in each batch.")
     original_group.add_argument("--optimized", action="store_true", help="Use more efficient queries (i.e. 'find_one', 'update_one', 'delete_one').")
     original_group.add_argument("--insert_ratio", type=float, default=None, help="Workload ratio for insert operations.")
     original_group.add_argument("--select_ratio", type=float, default=None, help="Workload ratio for select operations.")
@@ -511,10 +510,11 @@ def main():
 
 
     # --- General arguments for both workloads ---
-    parser.add_argument("--runtime", default="60s", help="The total duration to run the workload (e.g., 60s, 5m).")
-    parser.add_argument("--threads", type=int, default=4, help="Number of threads (coroutines) per process.")
-    parser.add_argument("--cpu", type=int, default=1, help="Number of CPUs/processes to use.")
-    parser.add_argument("--report_interval", type=int, default=5, help="Frequency (in seconds) to report operations per second.")
+    parser.add_argument("--runtime", default="60s", help="The total duration to run the workload (e.g., 60s, 5m). Default 60s")
+    parser.add_argument("--threads", type=int, default=4, help="Number of threads (coroutines) per process. Default 4")
+    parser.add_argument("--cpu", type=int, default=1, help="Number of CPUs/processes to use. Default 1")
+    parser.add_argument("--batch_size", type=int, default=100, help="Number of documents to insert in each batch. Default 100")
+    parser.add_argument("--report_interval", type=int, default=5, help="Frequency (in seconds) to report operations per second. Default 5s")
     parser.add_argument("--log", help="Path and filename for log output.")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode to show detailed output.")
 

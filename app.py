@@ -70,7 +70,8 @@ async def start_generic_workload_async(args, target_ids, output_queue, stop_even
                     target_ids=target_ids,
                     stop_event=stop_event,
                     output_queue=output_queue,
-                    report_interval=args.report_interval
+                    report_interval=args.report_interval,
+                    batch_size=args.batch_size
                 ))
             tasks.append(task)
     else:

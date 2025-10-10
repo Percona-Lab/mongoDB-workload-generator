@@ -9,9 +9,6 @@ from colors import Bcolors
 import itertools
 import uuid
 
-# Configuration
-ID_SAMPLE_SIZE = 10000
-
 async def prepare(args):
     """Drops, creates, and loads the generic benchmark collection."""
     print(f"{Bcolors.HEADER}--- Starting Generic Prepare Phase ---{Bcolors.ENDC}")
@@ -63,23 +60,23 @@ async def cleanup(args):
     await mongo_client.close_client_async()
 
 async def get_target_ids(args):
-    """Fetches a sample of _id values from the prepared collection."""
+    """Fetches a sample of values from the prepared collection."""
+    SAMPLE_SIZE = 10000
     # print(f"Fetching a sample of {ID_SAMPLE_SIZE} IDs to use for queries...")
     await mongo_client.init_async(args)
     client = mongo_client.get_client()
     collection = client[args.db][args.collection]
     
-    pipeline = [{"$sample": {"size": ID_SAMPLE_SIZE}}]
+    pipeline = [{"$sample": {"size": SAMPLE_SIZE}}]
     target_ids = [doc["_id"] async for doc in collection.aggregate(pipeline)]
     
     await mongo_client.close_client_async()
     return target_ids
 
-async def find_thread_worker(collection, target_ids, stop_event, output_queue, report_interval):
+async def find_thread_worker(collection, target_ids, stop_event, output_queue, report_interval, batch_size=100):
     """The ultra-light async worker for FIND operations."""
     local_op_count = 0
     local_docs_found = 0
-    batch_size = 100
     last_report_time = time.time()
     last_reported_op_count = 0
     last_reported_docs_found = 0
@@ -109,11 +106,10 @@ async def find_thread_worker(collection, target_ids, stop_event, output_queue, r
     if final_ops > 0:
         output_queue.put({"total_ops": final_ops, "docs_found": final_docs})
 
-async def update_thread_worker(collection, target_ids, stop_event, output_queue, report_interval):
+async def update_thread_worker(collection, target_ids, stop_event, output_queue, report_interval, batch_size=100):
     """The ultra-light async worker for UPDATE operations."""
     local_op_count = 0
     local_docs_modified = 0
-    batch_size = 100
     last_report_time = time.time()
     last_reported_op_count = 0
     last_reported_docs_modified = 0
@@ -125,7 +121,7 @@ async def update_thread_worker(collection, target_ids, stop_event, output_queue,
             tasks.append(collection.update_one(
                 {"_id": target_id},
                 {"$set": {"pad": "Y" * 100}},
-                upsert=True  # Make the update an upsert
+                upsert=True  
             ))
         
         results = await asyncio.gather(*tasks)
@@ -150,7 +146,7 @@ async def update_thread_worker(collection, target_ids, stop_event, output_queue,
         output_queue.put({"total_ops": final_ops, "docs_modified": final_docs})
 
 
-async def delete_thread_worker(collection, target_ids, stop_event, output_queue, report_interval):
+async def delete_thread_worker(collection, target_ids, stop_event, output_queue, report_interval, batch_size=100):
     """The ultra-light async worker for DELETE operations.
     
     To maintain a stable benchmark, this worker performs a delete-then-reinsert cycle.
@@ -158,7 +154,6 @@ async def delete_thread_worker(collection, target_ids, stop_event, output_queue,
     """
     local_op_count = 0
     local_docs_deleted = 0
-    batch_size = 100
     last_report_time = time.time()
     last_reported_op_count = 0
     last_reported_docs_deleted = 0
@@ -170,7 +165,7 @@ async def delete_thread_worker(collection, target_ids, stop_event, output_queue,
         else:
             ids_to_operate_on = random.sample(target_ids, k=batch_size)
 
-        # Phase 1: Batch Deletes (This remains the same)
+        # Phase 1: Batch Deletes 
         delete_tasks = [collection.delete_one({"_id": doc_id}) for doc_id in ids_to_operate_on]
         delete_results = await asyncio.gather(*delete_tasks)
 
@@ -178,9 +173,9 @@ async def delete_thread_worker(collection, target_ids, stop_event, output_queue,
         # This replaces the document if it exists or inserts it if it doesn't.
         replace_tasks = [
             collection.replace_one(
-                {"_id": doc_id},                               # The filter to find the document
-                {"_id": doc_id, "pad": "X" * 100},              # The new document to insert/replace with
-                upsert=True                                    # The key option!
+                {"_id": doc_id},                               
+                {"_id": doc_id, "pad": "X" * 100},              
+                upsert=True                   
             ) for doc_id in ids_to_operate_on
         ]
         await asyncio.gather(*replace_tasks)
@@ -210,8 +205,6 @@ async def insert_thread_worker(collection, stop_event, output_queue, report_inte
     last_report_time = time.time()
     last_reported_op_count = 0
     
-    # No longer need itertools.count, as MongoDB will generate the _id.
-
     while not stop_event.is_set():
         tasks = []
         for _ in range(batch_size):
