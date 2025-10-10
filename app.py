@@ -42,7 +42,7 @@ async def start_generic_workload_async(args, target_ids, output_queue, stop_even
         "find": generic_workload.find_thread_worker,
         "update": generic_workload.update_thread_worker,
         "delete": generic_workload.delete_thread_worker,
-        "insert": generic_workload.insert_thread_worker, # Add the new worker
+        "insert": generic_workload.insert_thread_worker, 
     }
 
     workload_type = getattr(args, 'type', 'find') 
@@ -61,7 +61,8 @@ async def start_generic_workload_async(args, target_ids, output_queue, stop_even
                     collection=collection,
                     stop_event=stop_event,
                     output_queue=output_queue,
-                    report_interval=args.report_interval
+                    report_interval=args.report_interval,
+                    batch_size=args.batch_size
                 ))
             else:
                  task = asyncio.create_task(worker_function(
@@ -84,7 +85,8 @@ async def start_generic_workload_async(args, target_ids, output_queue, stop_even
                     collection=collection,
                     stop_event=stop_event,
                     output_queue=output_queue,
-                    report_interval=args.report_interval
+                    report_interval=args.report_interval,
+                    batch_size=args.batch_size
                 ))
             else:
                 task = asyncio.create_task(worker_function(

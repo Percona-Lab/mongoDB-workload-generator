@@ -47,18 +47,18 @@ def log_workload_config(collection_def, args, shard_enabled=None, workload_lengt
         instances_color = Bcolors.SETTING_VALUE
         instances_text = args.collections
 
-    if args.generic:
-        batch_color = Bcolors.DISABLED
-        batch_size = "Disabled"
-    else:
-        batch_color = Bcolors.SETTING_VALUE
-        batch_size = args.batch_size
+    # if args.generic:
+    #     batch_color = Bcolors.DISABLED
+    #     batch_size = "Disabled"
+    # else:
+    #     batch_color = Bcolors.SETTING_VALUE
+    #     batch_size = args.batch_size
            
 
     settings = [
         f"{Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{status_color}{status_text}{Bcolors.ENDC}",
         f"{Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC}{Bcolors.BOLD}{Bcolors.SETTING_VALUE}({collection_info}){Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{batch_color}{batch_size}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.batch_size}{Bcolors.ENDC}",
         f"{Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{instances_color}{instances_text}{Bcolors.ENDC}",
         f"{Bcolors.WORKLOAD_SETTING}Duration:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{duration_str}{Bcolors.ENDC}",
         f"{Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}",
@@ -71,7 +71,7 @@ def log_workload_config(collection_def, args, shard_enabled=None, workload_lengt
     
     workload_type_str = ""
     if args.generic:
-        workload_type_str = "Generic Point-Query"
+        workload_type_str = "Generic"
         optimized_status = "Disabled"
         optimized_color = Bcolors.DISABLED 
     elif args.custom_queries or args.collection_definition:

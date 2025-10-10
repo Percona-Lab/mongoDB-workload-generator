@@ -23,14 +23,11 @@ async def prepare(args):
     await collection.drop()
     print(f"Inserting {args.num_docs:,} documents with random UUIDs...")
 
-    batch_size = 1000
+    batch_size = args.batch_size
     tasks = []
     start_time = time.time()
 
     for i in range(1, args.num_docs + 1):
-        # The new document structure:
-        # 1. No "_id" field - MongoDB will generate an ObjectId automatically.
-        # 2. A new "indexed_uuid" field with a random UUID.
         doc = {
             "indexed_uuid": str(uuid.uuid4()),
             "pad": "X" * 100
@@ -207,10 +204,9 @@ async def delete_thread_worker(collection, target_ids, stop_event, output_queue,
         output_queue.put({"total_ops": final_ops, "docs_deleted": final_docs})
 
 
-async def insert_thread_worker(collection, stop_event, output_queue, report_interval):
+async def insert_thread_worker(collection, stop_event, output_queue, report_interval, batch_size=1000):
     """The ultra-light async worker for random INSERT operations."""
     local_op_count = 0
-    batch_size = 100
     last_report_time = time.time()
     last_reported_op_count = 0
     
