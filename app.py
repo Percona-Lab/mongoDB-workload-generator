@@ -32,28 +32,74 @@ import generic_workload # Import the new module at the top of app.py
 # Generic workload
 ###################
 async def start_generic_workload_async(args, target_ids, output_queue, stop_event):
-    """
-    The entry point for a single process running the generic workload.
-    """
+    """Initializes the client and starts the async worker threads."""
     await mongo_client.init_async(args)
     client = mongo_client.get_client()
     collection = client[args.db][args.collection]
+
+    # Map the workload type argument to the actual worker function
+    worker_map = {
+        "find": generic_workload.find_thread_worker,
+        "update": generic_workload.update_thread_worker,
+        "delete": generic_workload.delete_thread_worker,
+        "insert": generic_workload.insert_thread_worker, # Add the new worker
+    }
+
+    workload_type = getattr(args, 'type', 'find') 
     
-    # Create worker coroutines that will report their own progress
-    workers = [
-        asyncio.create_task(generic_workload.thread_worker(
-            collection, 
-            target_ids, 
-            stop_event, 
-            output_queue, 
-            args.report_interval
-        ))
-        for _ in range(args.threads)
-    ]
+    tasks = []
     
-    # Simply wait for the workers to be stopped by the main process
-    await asyncio.gather(*workers)
-    
+    if workload_type == 'mixed':
+        print("Running a MIXED workload (find, update, delete, insert)...")
+        # Now includes the insert worker
+        all_workers = list(worker_map.values())
+        num_workers = len(all_workers)
+        
+        for i in range(args.threads):
+            worker_function = all_workers[i % num_workers]
+            
+            # The insert worker has a different signature (no target_ids)
+            if worker_function == generic_workload.insert_thread_worker:
+                task = asyncio.create_task(worker_function(
+                    collection=collection,
+                    stop_event=stop_event,
+                    output_queue=output_queue,
+                    report_interval=args.report_interval
+                ))
+            else:
+                 task = asyncio.create_task(worker_function(
+                    collection=collection,
+                    target_ids=target_ids,
+                    stop_event=stop_event,
+                    output_queue=output_queue,
+                    report_interval=args.report_interval
+                ))
+            tasks.append(task)
+    else:
+        worker_function = worker_map.get(workload_type)
+        if not worker_function:
+            raise ValueError(f"Invalid workload type specified: {workload_type}")
+        
+        print(f"Running a single workload: {workload_type}...")
+        for _ in range(args.threads):
+            if worker_function == generic_workload.insert_thread_worker:
+                task = asyncio.create_task(worker_function(
+                    collection=collection,
+                    stop_event=stop_event,
+                    output_queue=output_queue,
+                    report_interval=args.report_interval
+                ))
+            else:
+                task = asyncio.create_task(worker_function(
+                    collection=collection,
+                    target_ids=target_ids,
+                    stop_event=stop_event,
+                    output_queue=output_queue,
+                    report_interval=args.report_interval
+                ))
+            tasks.append(task)
+
+    await asyncio.gather(*tasks)
     await mongo_client.close_client_async()
 
 fake = Faker()

@@ -70,10 +70,17 @@ async def fetch_and_log_collection_stats(args):
         await mongo_client.close_client_async()
 
 
-def log_generic_summary(total_ops, total_docs_found, elapsed_time, specified_duration_str):
+def log_generic_summary(total_ops, select_ops, insert_ops, update_ops, delete_ops, 
+                        docs_found, docs_inserted, docs_modified, docs_deleted, 
+                        elapsed_time, specified_duration_str):
     """Prints the final summary block for the generic workload."""
     table_width = 115
+    
     overall_throughput = total_ops / elapsed_time if elapsed_time > 0 else 0
+    select_throughput = select_ops / elapsed_time if elapsed_time > 0 else 0
+    insert_throughput = insert_ops / elapsed_time if elapsed_time > 0 else 0
+    update_throughput = update_ops / elapsed_time if elapsed_time > 0 else 0
+    delete_throughput = delete_ops / elapsed_time if elapsed_time > 0 else 0
     
     summary_details = textwrap.dedent(f"""
 {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}
@@ -81,8 +88,8 @@ def log_generic_summary(total_ops, total_docs_found, elapsed_time, specified_dur
 {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}
 {Bcolors.GRAY_TEXT}Specified Duration:{Bcolors.ENDC} {specified_duration_str}
 {Bcolors.GRAY_TEXT}Total Elapsed Time:{Bcolors.ENDC} {elapsed_time:.2f} seconds
-{Bcolors.GRAY_TEXT}Total Operations:{Bcolors.ENDC} {Bcolors.BOLD}{total_ops:,}{Bcolors.ENDC} (SELECT: {total_ops:,}, INSERT: 0, UPDATE: 0, DELETE: 0)
-{Bcolors.GRAY_TEXT}Overall Throughput:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.HIGHLIGHT}{overall_throughput:,.2f} ops/sec{Bcolors.ENDC} {Bcolors.GRAY_TEXT}({Bcolors.ENDC}{Bcolors.LIGHT_GRAY_TEXT}SELECTS: {Bcolors.ENDC}{Bcolors.BOLD}{overall_throughput:,.2f}{Bcolors.ENDC}{Bcolors.GRAY_TEXT}, INSERTS: 0.00, UPDATES: 0.00, DELETES: 0.00){Bcolors.ENDC}
-{Bcolors.GRAY_TEXT}Total:{Bcolors.ENDC} (Documents Found: {Bcolors.BOLD}{total_docs_found:,}{Bcolors.ENDC} | Documents Inserted: {Bcolors.BOLD}0{Bcolors.ENDC} | Documents Updated: {Bcolors.BOLD}0{Bcolors.ENDC} | Documents Deleted: {Bcolors.BOLD}0{Bcolors.ENDC})
+{Bcolors.GRAY_TEXT}Total Operations:{Bcolors.ENDC} {Bcolors.BOLD}{total_ops:,}{Bcolors.ENDC} (SELECT: {Bcolors.BOLD}{select_ops:,}{Bcolors.ENDC}, INSERT: {Bcolors.BOLD}{insert_ops:,}{Bcolors.ENDC}, UPDATE: {Bcolors.BOLD}{update_ops:,}{Bcolors.ENDC}, DELETE: {Bcolors.BOLD}{delete_ops:,}{Bcolors.ENDC})
+{Bcolors.GRAY_TEXT}Overall Throughput:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.HIGHLIGHT}{overall_throughput:,.2f} ops/sec{Bcolors.ENDC} {Bcolors.GRAY_TEXT}({Bcolors.ENDC}{Bcolors.LIGHT_GRAY_TEXT}SELECTS: {Bcolors.ENDC}{Bcolors.BOLD}{select_throughput:,.2f}{Bcolors.ENDC}{Bcolors.GRAY_TEXT}, INSERTS: {Bcolors.ENDC}{Bcolors.BOLD}{insert_throughput:,.2f}{Bcolors.ENDC}{Bcolors.GRAY_TEXT}, UPDATES: {Bcolors.ENDC}{Bcolors.BOLD}{update_throughput:,.2f}{Bcolors.ENDC}{Bcolors.GRAY_TEXT}, DELETES: {Bcolors.ENDC}{Bcolors.BOLD}{delete_throughput:,.2f}{Bcolors.ENDC}{Bcolors.GRAY_TEXT}){Bcolors.ENDC}
+{Bcolors.GRAY_TEXT}Total:{Bcolors.ENDC} (Documents Found: {Bcolors.BOLD}{docs_found:,}{Bcolors.ENDC} | Documents Inserted: {Bcolors.BOLD}{docs_inserted:,}{Bcolors.ENDC} | Documents Updated: {Bcolors.BOLD}{docs_modified:,}{Bcolors.ENDC} | Documents Deleted: {Bcolors.BOLD}{docs_deleted:,}{Bcolors.ENDC})
 {Bcolors.ACCENT}{'=' * table_width}{Bcolors.ENDC}\n""")
     logging.info(summary_details)

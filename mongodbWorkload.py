@@ -16,7 +16,7 @@ import app
 import custom_query_executor
 import generic_workload
 from colors import Bcolors
-
+import queue
 
 
 args = None
@@ -166,10 +166,9 @@ def load_custom_queries(path_or_file=None):
 ###################################
 def run_generic_workload(args):
     """Orchestrates the multiprocessing for the 'run' phase of the generic workload."""
-    
+
     specified_duration_str = args.runtime
     if isinstance(args.runtime, str):
-        # ... (runtime parsing logic remains the same) ...
         try:
             if args.runtime.endswith("m"): args.runtime = int(args.runtime[:-1]) * 60
             elif args.runtime.endswith("s"): args.runtime = int(args.runtime[:-1])
@@ -179,8 +178,8 @@ def run_generic_workload(args):
             sys.exit(1)
 
     target_ids = asyncio.run(generic_workload.get_target_ids(args))
-    if not target_ids:
-        return
+    if not target_ids and args.type in ['find', 'update', 'delete']:
+         print("Warning: Could not fetch target IDs. Find, update, and delete workloads will not run.")
 
     reporting.log_generic_config(args)
     logging.info("Workload starting, processes are now warming up...")
@@ -200,30 +199,57 @@ def run_generic_workload(args):
 
         start_time = time.time()
         last_report_time = start_time
-        total_ops = 0
-        total_docs_found = 0  # New: Accumulator for found documents
+
+        total_ops, total_select_ops, total_insert_ops, total_update_ops, total_delete_ops = 0, 0, 0, 0, 0
+        total_docs_found, total_docs_inserted, total_docs_modified, total_docs_deleted = 0, 0, 0, 0
 
         try:
             while time.time() - start_time < args.runtime:
-                time.sleep(args.report_interval)
-                ops_in_interval = 0
-                docs_found_in_interval = 0 # New: Track for interval
-                while not stats_queue.empty():
-                    stats = stats_queue.get()
-                    ops_in_interval += stats.get("total_ops", 0)
-                    docs_found_in_interval += stats.get("docs_found", 0) # New: Aggregate docs
+                time.sleep(1) 
 
-                total_ops += ops_in_interval
-                total_docs_found += docs_found_in_interval # New: Aggregate total docs
+                if time.time() - last_report_time < args.report_interval:
+                    continue
+
+                select_ops_interval, insert_ops_interval, update_ops_interval, delete_ops_interval = 0, 0, 0, 0
+
+                while not stats_queue.empty():
+                    try:
+                        stats = stats_queue.get_nowait()
+                        ops_in_report = stats.get("total_ops", 0)
+
+                        if "docs_found" in stats:
+                            select_ops_interval += ops_in_report
+                            total_docs_found += stats.get("docs_found", 0)
+                        elif "docs_inserted" in stats:
+                            insert_ops_interval += ops_in_report
+                            total_docs_inserted += stats.get("docs_inserted", 0)
+                        elif "docs_modified" in stats:
+                            update_ops_interval += ops_in_report
+                            total_docs_modified += stats.get("docs_modified", 0)
+                        elif "docs_deleted" in stats:
+                            delete_ops_interval += ops_in_report
+                            total_docs_deleted += stats.get("docs_deleted", 0)
+                    except queue.Empty:
+                        break
+
+                total_select_ops += select_ops_interval
+                total_insert_ops += insert_ops_interval
+                total_update_ops += update_ops_interval
+                total_delete_ops += delete_ops_interval
 
                 elapsed = time.time() - last_report_time
-                throughput = ops_in_interval / elapsed if elapsed > 0 else 0
 
-                if throughput > 0:
+                total_throughput = (select_ops_interval + insert_ops_interval + update_ops_interval + delete_ops_interval) / elapsed if elapsed > 0 else 0
+                select_throughput = select_ops_interval / elapsed if elapsed > 0 else 0
+                insert_throughput = insert_ops_interval / elapsed if elapsed > 0 else 0
+                update_throughput = update_ops_interval / elapsed if elapsed > 0 else 0
+                delete_throughput = delete_ops_interval / elapsed if elapsed > 0 else 0
+
+                if total_throughput > 0:
                     logging.info(
-                        f"{Bcolors.GRAY_TEXT}Throughput last {args.report_interval}s ({args.cpu} CPUs): {Bcolors.BOLD}{Bcolors.HIGHLIGHT}{throughput:.2f} ops/sec{Bcolors.ENDC}{Bcolors.GRAY_TEXT} "
-                        f"(SELECTS: {throughput:.2f}, INSERTS: 0.00, "
-                        f"UPDATES: 0.00, DELETES: 0.00){Bcolors.ENDC}"
+                        f"{Bcolors.GRAY_TEXT}Throughput last {elapsed:.1f}s ({args.cpu} CPUs): {Bcolors.BOLD}{Bcolors.HIGHLIGHT}{total_throughput:.2f} ops/sec{Bcolors.ENDC}{Bcolors.GRAY_TEXT} "
+                        f"(SELECTS: {select_throughput:.2f}, INSERTS: {insert_throughput:.2f}, "
+                        f"UPDATES: {update_throughput:.2f}, DELETES: {delete_throughput:.2f}){Bcolors.ENDC}"
                     )
                 last_report_time = time.time()
 
@@ -235,21 +261,42 @@ def run_generic_workload(args):
                 p.join(timeout=5)
 
         end_time = time.time()
-        
+
         while not stats_queue.empty():
-            stats = stats_queue.get()
-            total_ops += stats.get("total_ops", 0)
-            total_docs_found += stats.get("docs_found", 0) # New: Aggregate final stats
-        
+            try:
+                stats = stats_queue.get_nowait()
+                ops_in_report = stats.get("total_ops", 0)
+
+                if "docs_found" in stats:
+                    total_select_ops += ops_in_report
+                    total_docs_found += stats.get("docs_found", 0)
+                elif "docs_inserted" in stats:
+                    total_insert_ops += ops_in_report
+                    total_docs_inserted += stats.get("docs_inserted", 0)
+                elif "docs_modified" in stats:
+                    total_update_ops += ops_in_report
+                    total_docs_modified += stats.get("docs_modified", 0)
+                elif "docs_deleted" in stats:
+                    total_delete_ops += ops_in_report
+                    total_docs_deleted += stats.get("docs_deleted", 0)
+            except queue.Empty:
+                break
+
+        total_ops = total_select_ops + total_insert_ops + total_update_ops + total_delete_ops
         duration = end_time - start_time
-        
+
         asyncio.run(reporting.fetch_and_log_collection_stats(args))
-        # New: Pass the total_docs_found to the summary function
-        reporting.log_generic_summary(total_ops, total_docs_found, duration, specified_duration_str)
+
+        reporting.log_generic_summary(
+            total_ops, total_select_ops, total_insert_ops, total_update_ops, total_delete_ops,
+            total_docs_found, total_docs_inserted, total_docs_modified, total_docs_deleted,
+            duration, specified_duration_str
+        )
 
 def start_generic_process(args, target_ids, output_queue, stop_event):
     """Wrapper to call the async process worker from app.py."""
     asyncio.run(app.start_generic_workload_async(args, target_ids, output_queue, stop_event))
+
 
 
 
@@ -456,6 +503,12 @@ def main():
     generic_group.add_argument("--db", default="benchmark", help="Database name for the generic workload.")
     generic_group.add_argument("--collection", default="pointquery", help="Collection name for the generic workload.")
     generic_group.add_argument("--num_docs", type=int, default=100000, help="Number of documents for the 'prepare' step.")
+
+    generic_group.add_argument('--type', 
+                type=str, 
+                default='find', 
+                choices=['find', 'update', 'delete', 'insert', 'mixed'], 
+                help='The type of generic workload to run: find, update, delete, insert, or mixed.')
 
 
     # --- General arguments for both workloads ---
