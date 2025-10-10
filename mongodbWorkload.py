@@ -491,7 +491,7 @@ def main():
     original_group.add_argument("--skip_delete", action="store_true", help="Skip all delete operations.")
 
     # Arguments for the generic workload ---
-    generic_group = parser.add_argument_group('Generic Workload Options (used with --generic)')
+    generic_group = parser.add_argument_group('Generic Workload Options ONLY (used with --generic)')
     generic_group.add_argument("command", nargs='?', choices=["prepare", "run", "cleanup"], help="The command for the generic workload: 'prepare', 'run', or 'cleanup'.")
     generic_group.add_argument("--db", default="generic", help="Database name for the generic workload. Default: generic")
     generic_group.add_argument("--collection", default="simple", help="Collection name for the generic workload. Default: simple")

@@ -1,14 +1,28 @@
 # Workload Generator for MongoDB
 
-Workload Generator for MongoDB  was designed to help MongoDB users effortlessly generate data and simulate workloads for both sharded and non-sharded clusters. The generated workloads include standard CRUD operations, reflecting real-world usage patterns of a MongoDB environment.
+## Overview
+The Workload Generator for MongoDB is a powerful tool designed to help users effortlessly generate data and simulate workloads against both sharded and non-sharded MongoDB clusters. The tool supports all standard CRUD (Create, Read, Update, Delete) operations, allowing for the creation of realistic performance tests that reflect real-world usage patterns.
 
-Additionally, the tool supports the creation of realistic workloads by incorporating all CRUD operations through a set of queries that simulate common usage scenarios. Users can also define custom queries to run against collections created by the tool, further enhancing its flexibility and applicability.
+## Key Features
+Realistic Workload Simulation: By default, the generator creates a mixed workload of all CRUD operations based on common usage scenarios. For more targeted testing, it allows users to define custom queries to run against the generated collections, providing a high degree of flexibility.
 
-While the tool provides extensive configuration capabilities, it requires minimal setup — only basic connection details are needed. It is user-friendly, does not require compilation, and offers a high level of flexibility.
+Ease of Use: While offering extensive configuration capabilities, the tool requires minimal setup. It is user-friendly, requires no compilation, and only needs basic MongoDB connection details to get started.
 
-The application was developed and tested using Python 3. As such, Python 3 is recommended for optimal compatibility. If upgrading is not feasible, modifications to the scripts may be necessary to support older Python versions.
+High-Performance Load Generation: The tool is optimized to leverage multiple CPU cores and a configurable number of threads on the host system. This high level of parallelism makes it ideal for generating large-scale workloads and conducting effective stress tests on MongoDB clusters. The more resources available on the host machine, the greater the potential load that can be generated.
 
-The tool is optimized to utilize as many CPU cores as desired on the host system and supports the configuration of an arbitrary number of threads. The number of CPUs and threads refers to the available cores and threads on the source host running the workload generator. The more resources available, the greater the potential load that can be generated against the destination server. This enables high parallelism, making the tool ideal for generating large-scale workloads and conducting effective stress tests on MongoDB clusters.
+## A Unique Approach to Benchmarking
+Unlike typical benchmarking utilities, the Workload Generator for MongoDB functions as a highly customized application simulator. While standard benchmarking tools are designed for comparing different databases with generic workloads, this tool's greatest strength is its ability to mimic specific application behavior. Using JSON files, users can define not just data shapes and indexes but also complex, multi-step custom queries.
+
+This makes it the ideal solution for:
+
+* Simulating an application's exact workload to test database performance under realistic conditions.
+* Validating schema changes and their impact on performance.
+* Fine-tuning indexes for specific query patterns.
+
+Additionally, the tool includes a "generic" mode for simpler use cases. This mode functions more like a standard benchmark tool, allowing users to quickly measure the raw performance of find, update, delete, and insert operations without needing to configure a custom workload.
+
+## System Requirements
+The application was developed and tested using Python 3, which is the recommended version for optimal compatibility. Modifications to the scripts may be necessary to support older Python versions if upgrading is not feasible.
 
 #### Pre-reqs
 
@@ -33,18 +47,10 @@ pip3 install faker pymongo motor
 
 ## Configuration
 
-The tool consists of 9 main files 
+The tool consists of many modules, however only 1 requires modification and others are optional: 
 
-* [mongodbCreds.py](mongodbCreds.py) 
-* [mongodbLoadQueries.py](mongodbLoadQueries.py)  
-* [mongodbWorkload.py](mongodbWorkload.py) 
-* [app.py](app.py)
-* [args.py](args.py)
-* [customProvider.py](customProvider.py)
-* [custom_query_executor.py](custom_query_executor.py)
-* [logger.py](logger.py)
-* [mongo_client.py](mongo_client.py)
-
+* [mongodbCreds.py](mongodbCreds.py) -- Configure you connection details
+* [customProvider.py](customProvider.py) -- Create custom providers (optional)
 
 2 sample collections and 2 query templates have also been provided, they each have their own dedicated folders:
 
@@ -223,26 +229,35 @@ You can obtain help and a list of all available parameters by running `./mongodb
 
 ```
 ./mongodbWorkload.py --help
-usage: mongodbWorkload.py [-h] [--runtime RUNTIME] [--threads THREADS] [--cpu CPU] [--custom_queries CUSTOM_QUERIES] [--collections COLLECTIONS] [--recreate] [--batch_size BATCH_SIZE]
-                          [--optimized] [--insert_ratio INSERT_RATIO] [--select_ratio SELECT_RATIO] [--update_ratio UPDATE_RATIO] [--delete_ratio DELETE_RATIO]
-                          [--report_interval REPORT_INTERVAL] [--log LOG] [--skip_insert] [--skip_select] [--skip_update] [--skip_delete] [--debug]
-                          [--collection_definition COLLECTION_DEFINITION]
+usage: mongodbWorkload.py [-h] [--generic] [--custom_queries CUSTOM_QUERIES] [--collection_definition COLLECTION_DEFINITION] [--collections COLLECTIONS] [--recreate] [--optimized]
+                          [--insert_ratio INSERT_RATIO] [--select_ratio SELECT_RATIO] [--update_ratio UPDATE_RATIO] [--delete_ratio DELETE_RATIO] [--skip_insert] [--skip_select]
+                          [--skip_update] [--skip_delete] [--db DB] [--collection COLLECTION] [--num_docs NUM_DOCS] [--type {find,update,delete,insert,mixed}] [--runtime RUNTIME]
+                          [--threads THREADS] [--cpu CPU] [--batch_size BATCH_SIZE] [--report_interval REPORT_INTERVAL] [--log LOG] [--debug]
+                          [{prepare,run,cleanup}]
 
 MongoDB Workload Generator
 
 options:
   -h, --help            show this help message and exit
-  --runtime RUNTIME     The total duration to run the workload (e.g., 60s, 5m).
-  --threads THREADS     Number of threads per process. (Total threads = threads * cpu)
-  --cpu CPU             Number of CPUs/processes to use.
+  --generic             Run the high-throughput generic point-query workload.
+  --runtime RUNTIME     The total duration to run the workload (e.g., 60s, 5m). Default: 60s
+  --threads THREADS     Number of threads (coroutines) per process. Default: 4
+  --cpu CPU             Number of CPUs/processes to use. Default: 1
+  --batch_size BATCH_SIZE
+                        Number of documents to insert in each batch. Default: 100
+  --report_interval REPORT_INTERVAL
+                        Frequency (in seconds) to report operations per second. Default: 5
+  --log LOG             Path and filename for log output.
+  --debug               Enable debug mode to show detailed output.
+
+Default and Custom Workload Options:
   --custom_queries CUSTOM_QUERIES
                         Path to a JSON file with custom queries.
+  --collection_definition COLLECTION_DEFINITION
+                        Path to a JSON file or directory with collection definitions.
   --collections COLLECTIONS
-
-                        Number of collections to use.
+                        Number of collections to use. Default: 1
   --recreate            Drops the collections before starting the workload.
-  --batch_size BATCH_SIZE
-                        Number of documents to insert in each batch.
   --optimized           Use more efficient queries (i.e. 'find_one', 'update_one', 'delete_one').
   --insert_ratio INSERT_RATIO
                         Workload ratio for insert operations.
@@ -252,16 +267,20 @@ options:
                         Workload ratio for update operations.
   --delete_ratio DELETE_RATIO
                         Workload ratio for delete operations.
-  --report_interval REPORT_INTERVAL
-                        Frequency (in seconds) to report operations per second.
-  --log LOG             Path and filename for log output.
   --skip_insert         Skip all insert operations.
   --skip_select         Skip all select operations.
   --skip_update         Skip all update operations.
   --skip_delete         Skip all delete operations.
-  --debug               Enable debug mode to show detailed output.
-  --collection_definition COLLECTION_DEFINITION
-                        Path to a JSON file or directory with collection definitions.
+
+Generic Workload Options ONLY (used with --generic):
+  {prepare,run,cleanup}
+                        The command for the generic workload: 'prepare', 'run', or 'cleanup'.
+  --db DB               Database name for the generic workload. Default: generic
+  --collection COLLECTION
+                        Collection name for the generic workload. Default: simple
+  --num_docs NUM_DOCS   Number of documents for the 'prepare' step. Default: 100000
+  --type {find,update,delete,insert,mixed}
+                        The type of generic workload to run: find, update, delete, insert, or mixed. Default: find
 ```                        
 
 #### Basic Usage 
@@ -406,3 +425,65 @@ The parameters available and their use cases are shown below:
 16. Debug
 
   - You can run the tool in debug mode by providing the `--debug` argument to see more details about your workload and if you wish to troubleshoot query issues.
+
+#### Generic Workload Usage 
+
+The Generic Workload is a simplified, high-throughput benchmarking mode designed for raw performance and stress testing. Unlike the "Standard" or "Custom" modes (explained above) that simulate complex application behavior, the Generic Workload focuses on a single task: executing simple point-queries as fast as possible.
+
+This mode is ideal for answering the fundamental question: "How fast can my MongoDB cluster retrieve individual documents?" It removes the complexity of custom schemas and workload mixes, allowing you to measure the baseline performance of your hardware and database configuration.
+
+##### The Three-Step Workflow
+The Generic Workload operates using a simple, three-command lifecycle: `prepare`, `run`, and `cleanup`.
+
+* prepare: This command creates a dedicated benchmark collection and populates it with a specified number of simple documents. Each document contains only a unique _id and a random payload, optimized for fast insertion and querying.
+
+* run: This is the core performance test. The script pre-fetches a sample of values from the prepared collection and then uses all available CPU cores and threads to hammer the database with queries for a specified duration.
+
+* cleanup: This command safely drops the benchmark collection, cleaning up the database environment after your test is complete.
+
+##### Usage and Commands
+To use this mode, you must include the `--generic` flag followed by one of the three commands (`prepare`, `run`, or `cleanup`).
+
+1. Prepare the Dataset
+This example creates the `generic.simple` collection (or as specified) with 100 thousand documents.
+
+```
+./mongodbWorkload.py --generic prepare --num_docs 100000
+```
+
+2. Run the Workload
+This example executes a 60-second performance test using 4 CPU processes and 100 threads per process.
+
+```
+./mongodbWorkload.py --generic run --runtime 60s --cpu 4 --threads 100
+```
+
+3. Clean Up the Dataset
+This command drops the `generic.simple` collection.
+
+```
+./mongodbWorkload.py --generic cleanup
+```
+
+##### Generic Workload Options
+
+* `--generic prepare|run|cleanup`	Required. Activates the generic workload mode and which action to perform: `prepare, run, or cleanup`.
+* `--db`	Optional. The name of the database to create. Default: `generic`
+* `--collection`	Optional.	The name of the collection to create. Default: `simple`
+* `--num_docs`	Optional.	The number of documents to create during the prepare step. Default: `100000`
+* `--type find|update|delete|insert|mixed` Optional. You can specify the type of workload when using the `run` action. Default: `find`
+
+###### Additional Options
+
+While the Generic Workload has unique commands (prepare, run, cleanup) and specific options (e.g., `--num_docs`), it also shares several general-purpose flags with the Standard and Custom modes. These allow you to control the execution and intensity of the test, including options such as:
+
+By default, the run command executes a high-throughput, read-only (find_one) point-query test. However, this behavior can be customized to include a mix of operations. The following options allow you to precisely tailor the workload to your testing needs:
+
+* `--cpu` 
+* `--threads` 
+* `--runtime`  
+* `--batch_size`
+
+###### Sample Generic Workload
+
+![generic_workload](generic_workload.png)

@@ -46,20 +46,14 @@ def log_workload_config(collection_def, args, shard_enabled=None, workload_lengt
         instances_color = Bcolors.SETTING_VALUE
         instances_text = args.collections
 
-        
-    settings = [
-        f"{Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{status_color}{status_text}{Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC}{Bcolors.BOLD}{Bcolors.SETTING_VALUE}({collection_info}){Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.batch_size}{Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{instances_color}{instances_text}{Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}Duration:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{duration_str}{Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})",
-        f"{Bcolors.WORKLOAD_SETTING}Report frequency:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.report_interval} seconds{Bcolors.ENDC}",
-        f"{Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}"
-    ]
+    batch_size_color = Bcolors.SETTING_VALUE
+    batch_size = args.batch_size
+    if not workload_ratios or workload_ratios.get('insert_ratio', 0) < 1:
+        if args.type not in ["mixed", "insert"]:
+            batch_size_color = Bcolors.DISABLED
+            batch_size = "Disabled"
 
-    
+
     workload_type_str = ""
     if args.generic:
         workload_type_str = "Generic"
@@ -74,9 +68,20 @@ def log_workload_config(collection_def, args, shard_enabled=None, workload_lengt
         optimized_status = args.optimized
         optimized_color = Bcolors.SETTING_VALUE
 
-  
-    settings.insert(0, f"{Bcolors.WORKLOAD_SETTING}Workload Type:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{workload_type_str}{Bcolors.ENDC}")
-    settings.insert(1, f"{Bcolors.WORKLOAD_SETTING}Optimized workload:{Bcolors.ENDC} {Bcolors.BOLD}{optimized_color}{optimized_status}{Bcolors.ENDC}")
+
+    settings = [
+        f"{Bcolors.WORKLOAD_SETTING}Workload Type:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{workload_type_str}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Database and Collection:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}({collection_info}){Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Optimized workload:{Bcolors.ENDC} {Bcolors.BOLD}{optimized_color}{optimized_status}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Configure Sharding:{Bcolors.ENDC} {Bcolors.BOLD}{status_color}{status_text}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Insert batch size:{Bcolors.ENDC} {Bcolors.BOLD}{batch_size_color}{batch_size}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Instances of the same collection:{Bcolors.ENDC} {Bcolors.BOLD}{instances_color}{instances_text}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Duration:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{duration_str}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}CPUs:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.cpu}{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Threads:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}(Per CPU: {args.threads} | Total: {args.cpu * args.threads}{Bcolors.ENDC})",
+        f"{Bcolors.WORKLOAD_SETTING}Report frequency:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.report_interval} seconds{Bcolors.ENDC}",
+        f"{Bcolors.WORKLOAD_SETTING}Report logfile:{Bcolors.ENDC} {Bcolors.BOLD}{Bcolors.SETTING_VALUE}{args.log}{Bcolors.ENDC}"
+    ]
        
     if workload_ratios:
         ratio_str = (f"({Bcolors.BOLD}{Bcolors.SETTING_VALUE}SELECTS: {int(round(float(workload_ratios['select_ratio']), 0))}% {Bcolors.ENDC}|"
