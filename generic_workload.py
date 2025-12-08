@@ -81,10 +81,13 @@ async def find_thread_worker(collection, target_ids, stop_event, output_queue, r
     last_reported_op_count = 0
     last_reported_docs_found = 0
 
+    random.shuffle(target_ids)
+    id_cycler = itertools.cycle(target_ids)
+
     while not stop_event.is_set():
         tasks = []
         for _ in range(batch_size):
-            target_id = random.choice(target_ids)
+            target_id = next(id_cycler)
             tasks.append(collection.find_one({"_id": target_id}))
         
         results = await asyncio.gather(*tasks)
@@ -115,15 +118,19 @@ async def update_thread_worker(collection, target_ids, stop_event, output_queue,
     last_reported_docs_modified = 0
 
     while not stop_event.is_set():
-        tasks = []
-        for _ in range(batch_size):
-            target_id = random.choice(target_ids)
+        tasks = []        
+        if len(target_ids) < batch_size:
+            ids_to_operate_on = target_ids
+        else:
+            ids_to_operate_on = random.sample(target_ids, k=batch_size)
+
+        for target_id in ids_to_operate_on:
             tasks.append(collection.update_one(
                 {"_id": target_id},
                 {"$set": {"pad": "Y" * 100}},
-                upsert=True  
+                upsert=True
             ))
-        
+
         results = await asyncio.gather(*tasks)
         local_op_count += batch_size
         # An upsert can result in a modified doc or an upserted_id. Both count as success.

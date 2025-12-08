@@ -71,12 +71,10 @@ async def init_async(args=None):
     global _client
     if _client is None:
         try:
-            # --- NEW LOGIC TO CALCULATE POOL SIZE ---
-            # task_batch_size is hardcoded to 100 in app.py's worker loop
-            task_batch_size = 100
+            # CALCULATE POOL SIZE
             # Calculate pool size based on threads * batch size, with a buffer.
-            # Default to 150 if args are not available.
-            pool_size = (args.threads * task_batch_size) + 50 if args else 150
+            # Default to 300 if args are not available.
+            pool_size = (args.threads * args.batch_size) + 50 if args else 300
 
             _client = _create_new_client(pool_size)
             
