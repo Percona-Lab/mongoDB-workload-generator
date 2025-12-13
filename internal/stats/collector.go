@@ -17,7 +17,6 @@ import (
 	"github.com/Percona-Lab/mongoDB-workload-generator/internal/logger"
 )
 
-// ... (Histogram and constants remain the same) ...
 const MaxLatencyBin = 10000
 
 type LatencyHistogram struct {
@@ -70,22 +69,21 @@ type Collector struct {
 	UpdateTotalNs uint64
 	DeleteOps     uint64
 	DeleteTotalNs uint64
-	// New Aggregate Counters
-	AggOps     uint64
-	AggTotalNs uint64
+	AggOps        uint64
+	AggTotalNs    uint64
 
 	FindHist   *LatencyHistogram
 	InsertHist *LatencyHistogram
 	UpdateHist *LatencyHistogram
 	DeleteHist *LatencyHistogram
-	AggHist    *LatencyHistogram // New
+	AggHist    *LatencyHistogram
 
 	startTime  time.Time
 	prevFind   uint64
 	prevInsert uint64
 	prevUpdate uint64
 	prevDelete uint64
-	prevAgg    uint64 // New
+	prevAgg    uint64
 }
 
 func NewCollector() *Collector {
@@ -203,7 +201,6 @@ func (c *Collector) Monitor(done <-chan struct{}, refreshRateSec int, concurrenc
 	fmt.Println(logger.GreenString("> Starting Workload..."))
 	fmt.Println()
 
-	// Added AGG column
 	headerStr := fmt.Sprintf(" %-7s | %9s | %6s | %6s | %6s | %6s | %6s",
 		"TIME", "TOTAL OPS", "SELECT", "INSERT", "UPDATE", "DELETE", "AGG")
 
@@ -301,7 +298,6 @@ func (c *Collector) PrintFinalSummary(duration time.Duration) {
 	fmt.Println()
 }
 
-// ... (Helper functions formatInt, formatLatency, printLatencyRow remain unchanged) ...
 func printLatencyRow(layout string, label string, h *LatencyHistogram) {
 	if h.Count == 0 {
 		fmt.Printf(layout+"\n", label, "-", "-", "-")

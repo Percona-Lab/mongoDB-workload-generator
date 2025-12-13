@@ -286,7 +286,7 @@ func RunWorkload(ctx context.Context, db *mongo.Database, collections []config.C
 			"update":    cfg.UpdatePercent,
 			"delete":    cfg.DeletePercent,
 			"insert":    cfg.InsertPercent,
-			"aggregate": cfg.AggregatePercent, // Added Aggregation
+			"aggregate": cfg.AggregatePercent,
 		},
 		debug:              cfg.DebugMode,
 		findBatchSize:      findBatch,
@@ -395,7 +395,6 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 		db := wCfg.database
 		coll := db.Collection(q.Collection)
 
-		// Deep clone logic moved to helpers/below to handle recursion for Pipelines
 		var filter map[string]interface{}
 		var pipeline []interface{}
 
