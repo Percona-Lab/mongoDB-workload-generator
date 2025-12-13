@@ -1,2 +1,18 @@
 __pycache__*
-mongodbCreds.py
+todo.txt
+# Binaries
+# Ignore all binaries in the bin folder
+bin/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# Go specific
+vendor/
+go.sum

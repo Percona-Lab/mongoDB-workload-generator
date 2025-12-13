@@ -1,0 +1,94 @@
+[
+    {
+        "databaseName": "shop",
+        "collectionName": "orders",
+        "fields": {
+            "_id": {
+                "type": "objectid"
+            },
+            "order_uuid": {
+                "type": "string",
+                "provider": "uuid"
+            },
+            "created_at": {
+                "type": "date"
+            },
+            "is_priority": {
+                "type": "bool"
+            },
+            "customer": {
+                "type": "object",
+                "fields": {
+                    "full_name": {
+                        "type": "string",
+                        "provider": "name"
+                    },
+                    "email": {
+                        "type": "string",
+                        "provider": "email"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "provider": "phone"
+                    },
+                    "address": {
+                        "type": "object",
+                        "fields": {
+                            "city": {
+                                "type": "string",
+                                "provider": "city"
+                            },
+                            "street": {
+                                "type": "string",
+                                "provider": "street"
+                            },
+                            "zip_code": {
+                                "type": "string",
+                                "provider": "zip"
+                            },
+                            "state": {
+                                "type": "string",
+                                "provider": "state_abr"
+                            }
+                        }
+                    }
+                }
+            },
+            "items": {
+                "type": "array",
+                "arraySize": 3,
+                "items": {
+                    "type": "object",
+                    "fields": {
+                        "product_name": {
+                            "type": "string",
+                            "provider": "beer_name"
+                        },
+                        "sku": {
+                            "type": "string",
+                            "provider": "ssn"
+                        },
+                        "price": {
+                            "type": "double",
+                            "min": 10,
+                            "max": 500
+                        },
+                        "quantity": {
+                            "type": "int",
+                            "min": 1,
+                            "max": 5
+                        }
+                    }
+                }
+            },
+            "tags": {
+                "type": "array",
+                "arraySize": 2,
+                "items": {
+                    "type": "string",
+                    "provider": "car_maker"
+                }
+            }
+        }
+    }
+]

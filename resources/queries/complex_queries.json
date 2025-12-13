@@ -1,0 +1,68 @@
+[
+    {
+        "collection": "orders",
+        "operation": "insert",
+        "filter": {}
+    },
+    {
+        "collection": "orders",
+        "operation": "find",
+        "filter": {
+            "order_uuid": "<string>"
+        },
+        "limit": 1
+    },
+    {
+        "collection": "orders",
+        "operation": "find",
+        "filter": {
+            "customer.address.city": "<string>"
+        },
+        "limit": 10
+    },
+    {
+        "collection": "orders",
+        "operation": "updateMany",
+        "filter": {
+            "customer.address.city": "<string>"
+        },
+        "update": {
+            "$set": {
+                "is_priority": true
+            }
+        }
+    },
+    {
+        "collection": "orders",
+        "operation": "deleteOne",
+        "filter": {
+            "order_uuid": "<string>"
+        }
+    },
+    {
+        "collection": "orders",
+        "operation": "aggregate",
+        "pipeline": [
+            {
+                "$match": {
+                    "customer.address.city": "<string>"
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$customer.email",
+                    "totalSpent": {
+                        "$sum": "$items.price"
+                    }
+                }
+            },
+            {
+                "$sort": {
+                    "totalSpent": -1
+                }
+            }
+        ]
+    }
+]
+
+

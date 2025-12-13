@@ -1,0 +1,116 @@
+# ==============================================================================
+# Connection Settings
+# ==============================================================================
+
+# The primary connection string for the MongoDB target.
+# Can be overridden via environment variable: GENMONGOLOAD_URI
+uri: "mongodb://localhost:31001"
+
+# --- Connection Tuning ---
+# Standard driver parameters to control behavior and resource usage.
+connection_params:
+  # Credentials (Optional)
+  # You can set the username here or via env GENMONGOLOAD_USERNAME.
+  # Password is NOT set here. Use GENMONGOLOAD_PASSWORD. If not set, the interactive prompt will ask for it
+  username: "root"
+  auth_source: admin             # Database to authenticate against
+  direct_connection: true        # Connect directly to the host (bypass topology discovery if single node)
+  replicaset_name: rs            # Required if connecting to a Replica Set
+  read_preference: primary
+  connection_timeout: 30         # Time (seconds) to wait for an initial connection
+  server_selection_timeout: 15   # Time (seconds) to wait to find a suitable server for an op
+  
+  # Pooling: Important for high concurrency.
+  # Ensure max_pool_size is > concurrency to avoid workers blocking on sockets.
+  max_pool_size: 200             
+  min_pool_size: 10              
+  max_idle_time: 30              # Max time (minutes) an idle connection stays open (prevents churn)
+
+# --- Custom Driver Options ---
+# Arbitrary key-values appended to the connection string URI.
+# All mongodb connection parameters are supported, just add them below as shown in the examples
+custom_params:
+  # Network compression. Use "zlib" for slow networks, "snappy" for speed, or remove for none.
+  compressors: "zlib,snappy"
+  # Disable SSL for local testing to save CPU cycles on handshake/encryption.
+  ssl: false
+  
+# Enable debug logging (verbose).
+debug: false
+
+
+# ==============================================================================
+# Workload Definition
+# ==============================================================================
+
+# If true, loads the built-in "Flights" example (resources/collections/default.json).
+# If false, loads custom JSON files from the paths below.
+# Override via env: GENMONGOLOAD_DEFAULT_WORKLOAD
+default_workload: true
+
+# Directories containing your custom JSON schema and query definitions.
+# Required if default_workload is false.
+collections_path: "resources/collections"
+queries_path: "resources/queries"
+
+# ==============================================================================
+# Workload Behavior
+# ==============================================================================
+# If true, drops the target collections before starting (Clean Slate).
+drop_collections: false
+
+# If true, skips seeding initial data. 
+skip_seed: true
+
+# Number of documents to insert during the initialization "Seed" phase.
+documents_count: 1000
+
+# Number of concurrent "Active Workers" to spawn.
+# Higher = more load, provided the client CPU/Network can handle it.
+concurrency: 4
+
+# Duration of the test run. Accepts the following time formats: (e.g., "1m", "30s", "1h").
+# Set to "0" to run the queries exactly once and exit.
+duration: "10s"
+
+# --- Operation Mix ---
+# The percentage of operations allocated to each type.
+# Will be normalized automatically if the sum != 100.
+find_percent: 55
+update_percent: 20
+delete_percent: 10
+insert_percent: 10
+aggregate_percent: 5
+
+# Enable application-level debug
+debug_mode: false
+
+# ==============================================================================
+# Advanced Performance Optimization
+# ==============================================================================
+# These settings allow fine-grained control over driver behavior and internal buffers.
+
+# --- Read Operations ---
+find_batch_size: 10             # Documents returned per network round-trip.
+find_limit: 5                   # Hard limit on documents returned per Find query.
+use_findone_for_limit_one: true # Optimization: use FindOne() if limit is 1.
+
+# --- Write Operations ---
+insert_cache_size: 1000         # Size of the internal buffer for generated documents.
+
+# --- Monitoring ---
+status_refresh_rate_sec: 1      # How often (seconds) to print the "AVG Ops/Sec" log line.
+
+# --- Reliability ---
+# Hard timeout (milliseconds) for individual DB operations. 
+# Allows failing fast rather than hanging.
+op_timeout_ms: 500              
+
+# Retry logic for transient errors (e.g., network blips).
+retry_attempts: 2
+retry_backoff_ms: 5
+
+# --- Global Pool Overrides ---
+# These override connection_params if set here, providing runtime flexibility.
+max_pool_size: 1000
+min_pool_size: 20

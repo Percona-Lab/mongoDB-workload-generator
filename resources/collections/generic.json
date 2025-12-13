@@ -1,0 +1,78 @@
+[
+    {
+        "databaseName": "generic",
+        "collectionName": "sample",
+        "shardConfig": {
+            "key": {
+                "field_int32": "hashed"
+            }
+        },
+        "fields": {
+            "_id": {
+                "type": "objectid"
+            },
+            "field_string": {
+                "type": "string",
+                "provider": "sentence"
+            },
+            "field_int32": {
+                "type": "int"
+            },
+            "field_int64": {
+                "type": "long"
+            },
+            "field_double": {
+                "type": "double"
+            },
+            "field_decimal128": {
+                "type": "decimal"
+            },
+            "field_bool": {
+                "type": "bool"
+            },
+            "field_date": {
+                "type": "date"
+            },
+            "field_timestamp": {
+                "type": "timestamp"
+            },
+            "field_binary": {
+                "type": "binary"
+            },
+            "field_regex": {
+                "type": "regex"
+            },
+            "field_javascript": {
+                "type": "javascript"
+            },
+            "field_null": {
+                "type": "null"
+            },
+            "field_min_key": {
+                "type": "minKey"
+            },
+            "field_max_key": {
+                "type": "maxKey"
+            },
+            "field_object": {
+                "type": "object"
+            },
+            "field_array_simple": {
+                "type": "array",
+                "arraySize": 5
+            }
+        },
+        "indexes": [
+            {
+                "keys": {
+                    "field_int32": 1
+                }
+            },
+            {
+                "keys": {
+                    "field_string": 1
+                }
+            }
+        ]
+    }
+]
