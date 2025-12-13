@@ -15,4 +15,3 @@ Thumbs.db
 
 # Go specific
 vendor/
-go.sum
