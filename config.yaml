@@ -43,9 +43,8 @@ debug: false
 # Workload Definition
 # ==============================================================================
 
-# If true, loads the built-in "Flights" example (resources/collections/default.json).
+# If true, genMongoLoad will only run the default workload default (resources/collections/default.json).
 # If false, loads custom JSON files from the paths below.
-# Override via env: GENMONGOLOAD_DEFAULT_WORKLOAD
 default_workload: true
 
 # Directories containing your custom JSON schema and query definitions.

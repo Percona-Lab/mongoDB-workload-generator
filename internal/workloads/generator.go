@@ -11,7 +11,7 @@ import (
 
 // GenerateDocument creates a single document.
 func GenerateDocument(col config.CollectionDefinition, cfg *config.AppConfig) map[string]interface{} {
-	if cfg.DefaultWorkload {
+	if cfg.DefaultWorkload && col.Name == "flights" {
 		return GenerateDefaultDocument(col)
 	}
 	return generateGenericDocument(col)
@@ -19,7 +19,7 @@ func GenerateDocument(col config.CollectionDefinition, cfg *config.AppConfig) ma
 
 // GenerateFallbackUpdate creates an update document when no configured query is found.
 func GenerateFallbackUpdate(col config.CollectionDefinition, cfg *config.AppConfig, rng *rand.Rand) map[string]interface{} {
-	if cfg.DefaultWorkload {
+	if cfg.DefaultWorkload && col.Name == "flights" {
 		return GenerateDefaultUpdate(rng)
 	}
 	return generateGenericUpdate(col, rng)
