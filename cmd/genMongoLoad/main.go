@@ -186,7 +186,7 @@ func main() {
 	// -----------------------------------------------------------------------------------
 	// PRINT BANNER / CONFIGURATION
 	// -----------------------------------------------------------------------------------
-	stats.PrintConfiguration(appCfg, dbName, version)
+	stats.PrintConfiguration(appCfg, collectionsCfg.Collections, version)
 
 	// --- Connect to DB ---
 	conn, err := db.Connect(ctx, appCfg, dbName)

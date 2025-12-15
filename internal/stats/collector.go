@@ -97,7 +97,7 @@ func NewCollector() *Collector {
 	}
 }
 
-func PrintConfiguration(appCfg *config.AppConfig, dbName string, version string) {
+func PrintConfiguration(appCfg *config.AppConfig, collections []config.CollectionDefinition, version string) {
 	fmt.Println()
 	fmt.Printf("  %s\n", logger.CyanString("genMongoLoad %s", version))
 	fmt.Println(logger.CyanString("  --------------------------------------------------"))
@@ -139,8 +139,28 @@ func PrintConfiguration(appCfg *config.AppConfig, dbName string, version string)
 	w.Flush()
 	fmt.Println()
 
+	// Logic to extract unique DBs and Namespaces
+	uniqueDBs := make(map[string]bool)
+	var namespaces []string
+	for _, col := range collections {
+		uniqueDBs[col.DatabaseName] = true
+		namespaces = append(namespaces, fmt.Sprintf("%s.%s", col.DatabaseName, col.Name))
+	}
+
+	var dbs []string
+	for db := range uniqueDBs {
+		dbs = append(dbs, db)
+	}
+	sort.Strings(dbs)
+	sort.Strings(namespaces)
+
 	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(w, "  Database:\t%s\n", dbName)
+
+	// Display Namespaces
+	if len(namespaces) > 0 {
+		fmt.Fprintf(w, "  Namespaces:\t%s\n", strings.Join(namespaces, ", "))
+	}
+
 	fmt.Fprintf(w, "  Workers:\t%d active\n", appCfg.Concurrency)
 	fmt.Fprintf(w, "  Duration:\t%s\n", appCfg.Duration)
 	fmt.Fprintf(w, "  Report Freq:\t%ds\n", appCfg.StatusRefreshRateSec)
