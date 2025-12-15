@@ -132,7 +132,7 @@ The tool comes with a built-in default workload useful for immediate testing and
 ./bin/genMongoLoad
 ```
 
-**Note about default workload:** genMongoLoad comes pre-configured with a [default collection](./resources/collections/default.json) and [default queries](./resources/queries/default.json). If you do not provide any parameters and leave the configuration setting default_workload: true, this default workload will be used.
+**Note about default workload:** genMongoLoad comes pre-configured with a [default collection](./resources/collections/default.json) and [default queries](./resources/queries/default.json). If you do not provide any parameters and leave the configuration setting `default_workload: true`, this default workload will be used.
 
 If you wish to use a different default workload, you can replace these two files with your own default.json files in the same paths. This allows you to define a different collection and set of queries as the default workload.
 
