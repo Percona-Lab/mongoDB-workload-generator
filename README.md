@@ -225,64 +225,8 @@ When executed, genMongoLoad performs the following steps:
     * Prints a detailed summary table at the end of the run.
 
 ### Sample Output
-```text
-./bin/genMongoLoad
-Enter Password for user 'root':
 
-  genMongoLoad v1.1.0-dirty
-  --------------------------------------------------
-  Database:     airline
-  Workers:      40 active
-  Duration:     10s
-  Report Freq:  1s
-
-  WORKLOAD DEFINITION
-  --------------------------------------------------
-  Batch Size:    1000
-  Mode:          Default Workload
-  Distribution:  Select (60%)  Update (20%)
-                 Insert (10%)  Delete (10%)
-                 Agg    (0%)
-
-  [INFO] Loaded 1 collection definition(s)
-  [INFO] Loaded 2 query templates(s)
-  [INFO] Skipping sharding for 'flights': Cluster is not sharded (Replica Set)
-  [INFO] Created 4 indexes on 'flights'
-  [INFO] Skipping data seeding (configured)
-
-> Starting Workload...
-
- TIME    | TOTAL OPS | SELECT | INSERT | UPDATE | DELETE |    AGG
- ---------------------------------------------------------------
- 00:01   |     8,300 |  5,004 |    798 |  1,650 |    848 |      0
- 00:02   |     8,048 |  4,736 |    773 |  1,694 |    845 |      0
- 00:03   |     8,168 |  4,728 |    824 |  1,737 |    879 |      0
- 00:04   |     8,182 |  4,893 |    817 |  1,695 |    777 |      0
- 00:05   |     8,504 |  5,047 |    843 |  1,724 |    890 |      0
- 00:06   |     8,776 |  5,271 |    851 |  1,757 |    897 |      0
- 00:07   |     8,546 |  5,145 |    880 |  1,699 |    822 |      0
- 00:08   |     8,365 |  4,945 |    828 |  1,753 |    839 |      0
- 00:09   |     8,733 |  5,208 |    907 |  1,716 |    902 |      0
- 00:10   |     6,084 |  3,718 |    551 |  1,236 |    579 |      0
-
-> Workload Finished.
-
-  SUMMARY
-  --------------------------------------------------
-  Runtime:    10.00s
-  Total Ops:  81,746
-  Avg Rate:   8,174 ops/sec
-
-  LATENCY DISTRIBUTION (ms)
-  --------------------------------------------------
-  TYPE             AVG          P95          P99
-  ----             ---          ---          ---
-  SELECT       1.24 ms      4.00 ms      9.00 ms
-  INSERT      12.11 ms     66.00 ms     73.00 ms
-  UPDATE       9.71 ms     65.00 ms     71.00 ms
-  DELETE       9.60 ms     65.00 ms     72.00 ms
-  AGG                -            -            -
-```
+![genMongoLoad Demo](./genMongoLoadDemo.gif)
 
 ---
 
@@ -296,8 +240,8 @@ To run your own workload against your own schema:
     ```json
     [
       {
-        "databaseName": "ecommerce",
-        "collectionName": "orders",
+        "database": "ecommerce",
+        "collection": "orders",
         "fields": {
           "_id": { "type": "objectid" },
           "customer_name": { "type": "string", "provider": "first_name" },

@@ -25,6 +25,8 @@ type LatencyHistogram struct {
 	Overflow int64
 	Count    int64
 	Sum      float64
+	Min      float64
+	Max      float64
 }
 
 func (h *LatencyHistogram) Record(ms float64) {
@@ -32,6 +34,14 @@ func (h *LatencyHistogram) Record(ms float64) {
 	defer h.mu.Unlock()
 	h.Count++
 	h.Sum += ms
+
+	if ms < h.Min {
+		h.Min = ms
+	}
+	if ms > h.Max {
+		h.Max = ms
+	}
+
 	bucket := int(math.Round(ms))
 	if bucket < 0 {
 		bucket = 0
@@ -88,15 +98,16 @@ type Collector struct {
 
 func NewCollector() *Collector {
 	return &Collector{
-		FindHist:   &LatencyHistogram{},
-		InsertHist: &LatencyHistogram{},
-		UpdateHist: &LatencyHistogram{},
-		DeleteHist: &LatencyHistogram{},
-		AggHist:    &LatencyHistogram{},
+		FindHist:   &LatencyHistogram{Min: math.MaxFloat64},
+		InsertHist: &LatencyHistogram{Min: math.MaxFloat64},
+		UpdateHist: &LatencyHistogram{Min: math.MaxFloat64},
+		DeleteHist: &LatencyHistogram{Min: math.MaxFloat64},
+		AggHist:    &LatencyHistogram{Min: math.MaxFloat64},
 		startTime:  time.Now(),
 	}
 }
 
+// CHANGED: Second argument is now []config.CollectionDefinition instead of dbName string
 func PrintConfiguration(appCfg *config.AppConfig, collections []config.CollectionDefinition, version string) {
 	fmt.Println()
 	fmt.Printf("  %s\n", logger.CyanString("genMongoLoad %s", version))
@@ -139,28 +150,14 @@ func PrintConfiguration(appCfg *config.AppConfig, collections []config.Collectio
 	w.Flush()
 	fmt.Println()
 
-	// Logic to extract unique DBs and Namespaces
-	uniqueDBs := make(map[string]bool)
+	// Logic to print Namespaces instead of just Database
 	var namespaces []string
 	for _, col := range collections {
-		uniqueDBs[col.DatabaseName] = true
 		namespaces = append(namespaces, fmt.Sprintf("%s.%s", col.DatabaseName, col.Name))
 	}
 
-	var dbs []string
-	for db := range uniqueDBs {
-		dbs = append(dbs, db)
-	}
-	sort.Strings(dbs)
-	sort.Strings(namespaces)
-
 	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-
-	// Display Namespaces
-	if len(namespaces) > 0 {
-		fmt.Fprintf(w, "  Namespaces:\t%s\n", strings.Join(namespaces, ", "))
-	}
-
+	fmt.Fprintf(w, "  Namespaces:\t%s\n", strings.Join(namespaces, ", ")) // Changed from Database
 	fmt.Fprintf(w, "  Workers:\t%d active\n", appCfg.Concurrency)
 	fmt.Fprintf(w, "  Duration:\t%s\n", appCfg.Duration)
 	fmt.Fprintf(w, "  Report Freq:\t%ds\n", appCfg.StatusRefreshRateSec)
@@ -303,11 +300,11 @@ func (c *Collector) PrintFinalSummary(duration time.Duration) {
 	fmt.Println(logger.BoldString("  LATENCY DISTRIBUTION (ms)"))
 	fmt.Println(logger.CyanString("  --------------------------------------------------"))
 
-	const tableLayout = "  %-7s   %10s   %10s   %10s"
-	headerStr := fmt.Sprintf(tableLayout, "TYPE", "AVG", "P95", "P99")
+	const tableLayout = "  %-7s   %10s   %10s   %10s   %10s   %10s"
+	headerStr := fmt.Sprintf(tableLayout, "TYPE", "AVG", "MIN", "MAX", "P95", "P99")
 	fmt.Println(logger.BoldString(headerStr))
 
-	separatorStr := fmt.Sprintf(tableLayout, "----", "---", "---", "---")
+	separatorStr := fmt.Sprintf(tableLayout, "----", "---", "---", "---", "---", "---")
 	fmt.Println(logger.CyanString(separatorStr))
 
 	printLatencyRow(tableLayout, "SELECT", c.FindHist)
@@ -320,14 +317,15 @@ func (c *Collector) PrintFinalSummary(duration time.Duration) {
 
 func printLatencyRow(layout string, label string, h *LatencyHistogram) {
 	if h.Count == 0 {
-		fmt.Printf(layout+"\n", label, "-", "-", "-")
+		fmt.Printf(layout+"\n", label, "-", "-", "-", "-", "-")
 		return
 	}
 	avgMs := h.Sum / float64(h.Count)
 	p95Ms := h.GetPercentile(95.0)
 	p99Ms := h.GetPercentile(99.0)
-	fmt.Printf(layout+"\n", label, formatLatency(avgMs), formatLatency(p95Ms), formatLatency(p99Ms))
+	fmt.Printf(layout+"\n", label, formatLatency(avgMs), formatLatency(h.Min), formatLatency(h.Max), formatLatency(p95Ms), formatLatency(p99Ms))
 }
+
 func formatLatency(ms float64) string {
 	if ms < 1000.0 {
 		return fmt.Sprintf("%.2f ms", ms)
@@ -337,6 +335,7 @@ func formatLatency(ms float64) string {
 	}
 	return fmt.Sprintf("%.2f m", ms/60000.0)
 }
+
 func formatInt(n int64) string {
 	in := strconv.FormatInt(n, 10)
 	numOfDigits := len(in)

@@ -32,8 +32,8 @@ type ShardConfig struct {
 }
 
 type CollectionDefinition struct {
-	DatabaseName string                     `json:"databaseName"`
-	Name         string                     `json:"collectionName"`
+	DatabaseName string                     `json:"database"`
+	Name         string                     `json:"collection"`
 	Fields       map[string]CollectionField `json:"fields"`
 	Indexes      []IndexDefinition          `json:"indexes,omitempty"`
 	ShardConfig  *ShardConfig               `json:"shardConfig,omitempty"`

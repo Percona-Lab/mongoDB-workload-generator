@@ -1,7 +1,7 @@
 [
     {
-        "databaseName": "generic",
-        "collectionName": "sample",
+        "database": "generic",
+        "collection": "sample",
         "shardConfig": {
             "key": {
                 "field_int32": "hashed"

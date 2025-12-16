@@ -1,7 +1,7 @@
 [
     {
-        "databaseName": "airline",
-        "collectionName": "flights",
+        "database": "airline",
+        "collection": "flights",
         "shardConfig": {
             "key": {
                 "flight_id": "hashed"
