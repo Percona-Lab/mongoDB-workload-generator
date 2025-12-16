@@ -226,7 +226,7 @@ When executed, plgm performs the following steps:
 
 ### Sample Output
 
-![plgm Demo](./plgmDemo.gif)
+![plgm](./plgm.gif)
 
 ---
 
