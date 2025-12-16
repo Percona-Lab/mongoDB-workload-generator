@@ -1,6 +1,6 @@
-# MongoDB Workload Generator - Docker & Kubernetes Guide
+# Percona Load Generator for MongoDB Clusters - Docker & Kubernetes Guide
 
-This guide details how to containerize and run the `genMongoLoad` workload generator.
+This guide details how to containerize and run the `plgm` workload generator.
 
 Running the benchmark as a container inside your Kubernetes cluster is the **recommended approach** for performance testing. It bypasses local network proxies (VPNs, Ingress Controllers) and places the load generator on the same high-speed network fabric as the database, ensuring you measure database performance, not network latency.
 
@@ -17,13 +17,13 @@ Create a file named `Dockerfile` in the root of this project. We have provided a
 Build the image locally.
 
 ```bash
-docker build -t genmongoload:latest .
+docker build -t plgm:latest .
 ```
 
 > **Note for Kubernetes Users:** If your cluster is remote (EKS, GKE, AKS), you might have to tag and push this image to a registry your cluster can access:
 > ```bash
-> docker tag genmongoload:latest myregistry.azurecr.io/genmongoload:v1.0.0
-> docker push myregistry.azurecr.io/genmongoload:v1.0.0
+> docker tag plgm:latest myregistry.azurecr.io/plgm:v1.0.0
+> docker push myregistry.azurecr.io/plgm:v1.0.0
 > ```
 
 ---
@@ -32,30 +32,30 @@ docker build -t genmongoload:latest .
 
 A Kubernetes Job is the ideal choice for benchmarking as it runs to completion and then terminates. However, you may choose the deployment strategy that best fits your specific requirements.
 
-### Create `genMongoLoad-job.yaml`
+### Create `plgm-job.yaml`
 
-We have provided a comprehensive sample manifest. It uses a Seed List for the URI (listing all three pods) to ensure high availability and utilizes the `GENMONGOLOAD_REPLICA_SET` variable among others to configure our options. This file is provided as an example; please edit [genMongoLoad-job.yaml](./genMongoLoad-job.yaml) to suit your specific requirements.
+We have provided a comprehensive sample manifest. It uses a Seed List for the URI (listing all three pods) to ensure high availability and utilizes the `PERCONALOAD_REPLICA_SET` variable among others to configure our options. This file is provided as an example; please edit [plgm-job.yaml](./plgm-job.yaml) to suit your specific requirements.
 
 ### Execute the Benchmark
 
 **1. Launch the Job**
 ```bash
-kubectl apply -f genMongoLoad-job.yaml
-job.batch/genmongoload created
+kubectl apply -f plgm-job.yaml
+job.batch/plgm created
 ```
 
 **2. Watch the Output**
 Find the pod created by the job and stream the logs to see the real-time "Ops/Sec" report.
 ```bash
-# Get the pod name (e.g., genmongoload-xxxxx)
-kubectl get pods -l job-name=genmongoload -n lab
+# Get the pod name (e.g., plgm-xxxxx)
+kubectl get pods -l job-name=plgm -n lab
 NAME                 READY   STATUS    RESTARTS   AGE
-genmongoload-xfznq   1/1     Running   0          4s
+plgm-xfznq   1/1     Running   0          4s
 
 # Stream logs
-kubectl logs genmongoload-xfznq -n lab
+kubectl logs plgm-xfznq -n lab
 
-  genMongoLoad 1
+  plgm 1
   --------------------------------------------------
   Database:     airline
   Workers:      40 active
@@ -111,14 +111,14 @@ kubectl logs genmongoload-xfznq -n lab
 **3. Clean Up & Retry**
 Jobs are immutable. To run again with new settings, delete the old job first.
 ```bash
-kubectl get jobs -l job-name=genmongoload -n lab
+kubectl get jobs -l job-name=plgm -n lab
 NAME           STATUS     COMPLETIONS   DURATION   AGE
-genmongoload   Complete   1/1           13s        3m8s
+plgm   Complete   1/1           13s        3m8s
 
-kubectl delete job genmongoload -n lab
-job.batch "genmongoload" deleted
+kubectl delete job plgm -n lab
+job.batch "plgm" deleted
 
-kubectl apply -f genMongoLoad-job.yaml
+kubectl apply -f plgm-job.yaml
 ```
 
 ---
@@ -129,15 +129,15 @@ You can override almost any setting in `config.yaml` using these Environment Var
 
 | Variable | Description |
 | :--- | :--- |
-| `GENMONGOLOAD_URI` | Connection String (use Internal DNS) |
-| `GENMONGOLOAD_CONCURRENCY` | Number of parallel worker threads |
-| `GENMONGOLOAD_DURATION` | Test duration (e.g., `60s`, `5m`) |
-| `GENMONGOLOAD_FIND_PERCENT` | % of operations that are Reads |
-| `GENMONGOLOAD_INSERT_PERCENT` | % of operations that are Inserts |
-| `GENMONGOLOAD_UPDATE_PERCENT` | % of operations that are Updates |
-| `GENMONGOLOAD_DELETE_PERCENT` | % of operations that are Deletes |
-| `GENMONGOLOAD_DOCUMENTS_COUNT` | Initial seed document count (if seeding) |
-| `GENMONGOLOAD_DEFAULT_WORKLOAD`| Set to `true` (use built-in flights) or `false` (custom) |
+| `PERCONALOAD_URI` | Connection String (use Internal DNS) |
+| `PERCONALOAD_CONCURRENCY` | Number of parallel worker threads |
+| `PERCONALOAD_DURATION` | Test duration (e.g., `60s`, `5m`) |
+| `PERCONALOAD_FIND_PERCENT` | % of operations that are Reads |
+| `PERCONALOAD_INSERT_PERCENT` | % of operations that are Inserts |
+| `PERCONALOAD_UPDATE_PERCENT` | % of operations that are Updates |
+| `PERCONALOAD_DELETE_PERCENT` | % of operations that are Deletes |
+| `PERCONALOAD_DOCUMENTS_COUNT` | Initial seed document count (if seeding) |
+| `PERCONALOAD_DEFAULT_WORKLOAD`| Set to `true` (use built-in flights) or `false` (custom) |
 
 ## 4. Troubleshooting Performance
 
@@ -154,10 +154,10 @@ You can override almost any setting in `config.yaml` using these Environment Var
 2.  **Check the Benchmark Pod:**
     Is the generator hitting its own limits?
     ```bash
-    kubectl top pod genmongoload-xxxxx
+    kubectl top pod plgm-xxxxx
     ```
     * **CPU Maxed?** The generator is CPU-bound. Increase `resources.limits.cpu` in the YAML or lower `GOMAXPROCS`.
-    * **CPU Low?** It might be network latency waiting for the DB. Increase `GENMONGOLOAD_CONCURRENCY` to create more parallel requests.
+    * **CPU Low?** It might be network latency waiting for the DB. Increase `PERCONALOAD_CONCURRENCY` to create more parallel requests.
 
 3.  **Read Preference:**
     If your Primary node is at 100% but Secondaries are idle, ensure your URI includes `readPreference=nearest` or `secondaryPreferred`.

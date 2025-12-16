@@ -1,6 +1,6 @@
 # --- Variables ---
-APP_NAME := genMongoLoad
-SRC_DIR := cmd/genMongoLoad/main.go
+APP_NAME := plgm
+SRC_DIR := cmd/plgm/main.go
 BIN_DIR := bin
 
 # Get the latest git tag or commit hash.

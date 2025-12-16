@@ -26,7 +26,7 @@ func main() {
 
 	// Custom Help Output
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "\ngenMongoLoad: A Workload Generator for MongoDB Clusters\n")
+		fmt.Fprintf(os.Stderr, "\nplgm: Percona Load Generator for MongoDB Clusters\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s [flags] [config_file]\n\n", os.Args[0])
 
 		fmt.Fprintf(os.Stderr, "Examples:\n")
@@ -41,39 +41,39 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nEnvironment Variables (Overrides):\n")
 
 		fmt.Fprintf(os.Stderr, " [Connection]\n")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_URI", "Connection URI")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_USERNAME", "Database User")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_PASSWORD", "Database Password (Recommended: Use Prompt)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_DIRECT_CONNECTION", "Force direct connection (true/false)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_REPLICA_SET", "Replica Set name")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_READ_PREFERENCE", "nearest")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_URI", "Connection URI")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_USERNAME", "Database User")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_PASSWORD", "Database Password (Recommended: Use Prompt)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DIRECT_CONNECTION", "Force direct connection (true/false)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_REPLICA_SET", "Replica Set name")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_READ_PREFERENCE", "nearest")
 
 		fmt.Fprintf(os.Stderr, "\n [Workload Core]\n")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_DEFAULT_WORKLOAD", "Use built-in workload (true/false)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_COLLECTIONS_PATH", "Path to collection JSON")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_QUERIES_PATH", "Path to query JSON")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_DURATION", "Test duration (e.g. 60s, 5m)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_CONCURRENCY", "Number of active workers")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_DOCUMENTS_COUNT", "Initial seed document count")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_DROP_COLLECTIONS", "Drop collections on start (true/false)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_SKIP_SEED", "Do not seed initial data on start (true/false)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_DEBUG_MODE", "Enable verbose logic logs (true/false)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DEFAULT_WORKLOAD", "Use built-in workload (true/false)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_COLLECTIONS_PATH", "Path to collection JSON")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_QUERIES_PATH", "Path to query JSON")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DURATION", "Test duration (e.g. 60s, 5m)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_CONCURRENCY", "Number of active workers")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DOCUMENTS_COUNT", "Initial seed document count")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DROP_COLLECTIONS", "Drop collections on start (true/false)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_SKIP_SEED", "Do not seed initial data on start (true/false)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DEBUG_MODE", "Enable verbose logic logs (true/false)")
 
 		fmt.Fprintf(os.Stderr, "\n [Operation Ratios] (Must sum to ~100)\n")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_FIND_PERCENT", "% of ops that are FIND")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_UPDATE_PERCENT", "% of ops that are UPDATE")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_INSERT_PERCENT", "% of ops that are INSERT")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_DELETE_PERCENT", "% of ops that are DELETE")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_AGGREGATE_PERCENT", "% of ops that are AGGREGATE")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_FIND_PERCENT", "% of ops that are FIND")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_UPDATE_PERCENT", "% of ops that are UPDATE")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_INSERT_PERCENT", "% of ops that are INSERT")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DELETE_PERCENT", "% of ops that are DELETE")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_AGGREGATE_PERCENT", "% of ops that are AGGREGATE")
 
 		fmt.Fprintf(os.Stderr, "\n [Performance Optimization]\n")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_FIND_BATCH_SIZE", "Docs returned per cursor batch")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_FIND_LIMIT", "Max docs per Find query")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_INSERT_CACHE_SIZE", "Generator buffer size")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_OP_TIMEOUT_MS", "Soft timeout per DB op (ms)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_RETRY_ATTEMPTS", "Retry attempts for failures")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_RETRY_BACKOFF_MS", "Wait time between retries (ms)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GENMONGOLOAD_STATUS_REFRESH_RATE_SEC", "Status report interval (sec)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_FIND_BATCH_SIZE", "Docs returned per cursor batch")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_FIND_LIMIT", "Max docs per Find query")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_INSERT_CACHE_SIZE", "Generator buffer size")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_OP_TIMEOUT_MS", "Soft timeout per DB op (ms)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_RETRY_ATTEMPTS", "Retry attempts for failures")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_RETRY_BACKOFF_MS", "Wait time between retries (ms)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_STATUS_REFRESH_RATE_SEC", "Status report interval (sec)")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "GOMAXPROCS", "Go Runtime CPU limit")
 		fmt.Fprintf(os.Stderr, "\n")
 	}
@@ -82,7 +82,7 @@ func main() {
 
 	// 2. Handle Version Flag
 	if *versionFlag {
-		fmt.Printf("genMongoLoad v%s\n", version)
+		fmt.Printf("plgm v%s\n", version)
 		os.Exit(0)
 	}
 
@@ -112,7 +112,7 @@ func main() {
 	// 1. Analyze the Base URI to see if it already has credentials
 	u, err := url.Parse(appCfg.URI)
 	if err != nil {
-		log.Fatalf("Invalid GENMONGOLOAD_URI: %v", err)
+		log.Fatalf("Invalid PERCONALOAD_URI: %v", err)
 	}
 	uriHasUser := u.User != nil && u.User.Username() != ""
 

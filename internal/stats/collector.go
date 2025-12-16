@@ -110,7 +110,7 @@ func NewCollector() *Collector {
 // CHANGED: Second argument is now []config.CollectionDefinition instead of dbName string
 func PrintConfiguration(appCfg *config.AppConfig, collections []config.CollectionDefinition, version string) {
 	fmt.Println()
-	fmt.Printf("  %s\n", logger.CyanString("genMongoLoad %s", version))
+	fmt.Printf("  %s\n", logger.CyanString("plgm %s", version))
 	fmt.Println(logger.CyanString("  --------------------------------------------------"))
 
 	safeURI := appCfg.URI
@@ -123,17 +123,17 @@ func PrintConfiguration(appCfg *config.AppConfig, collections []config.Collectio
 
 	var setEnvVars []string
 	knownVars := []string{
-		"GENMONGOLOAD_URI", "GENMONGOLOAD_USERNAME", "GENMONGOLOAD_PASSWORD",
-		"GENMONGOLOAD_CONCURRENCY", "GENMONGOLOAD_DURATION", "GENMONGOLOAD_DEFAULT_WORKLOAD",
-		"GENMONGOLOAD_COLLECTIONS_PATH", "GENMONGOLOAD_QUERIES_PATH",
-		"GENMONGOLOAD_DROP_COLLECTIONS", "GENMONGOLOAD_SKIP_SEED", "GENMONGOLOAD_DEBUG_MODE",
-		"GENMONGOLOAD_DIRECT_CONNECTION", "GENMONGOLOAD_REPLICA_SET", "GENMONGOLOAD_READ_PREFERENCE",
-		"GOMAXPROCS", "GENMONGOLOAD_AGGREGATE_PERCENT",
+		"PERCONALOAD_URI", "PERCONALOAD_USERNAME", "PERCONALOAD_PASSWORD",
+		"PERCONALOAD_CONCURRENCY", "PERCONALOAD_DURATION", "PERCONALOAD_DEFAULT_WORKLOAD",
+		"PERCONALOAD_COLLECTIONS_PATH", "PERCONALOAD_QUERIES_PATH",
+		"PERCONALOAD_DROP_COLLECTIONS", "PERCONALOAD_SKIP_SEED", "PERCONALOAD_DEBUG_MODE",
+		"PERCONALOAD_DIRECT_CONNECTION", "PERCONALOAD_REPLICA_SET", "PERCONALOAD_READ_PREFERENCE",
+		"GOMAXPROCS", "PERCONALOAD_AGGREGATE_PERCENT",
 	}
 
 	for _, v := range knownVars {
 		if _, exists := os.LookupEnv(v); exists {
-			if v == "GENMONGOLOAD_PASSWORD" {
+			if v == "PERCONALOAD_PASSWORD" {
 				setEnvVars = append(setEnvVars, v+"=(set)")
 			} else {
 				setEnvVars = append(setEnvVars, v)

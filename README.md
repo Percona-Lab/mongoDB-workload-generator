@@ -1,6 +1,6 @@
-# genMongoLoad: A Workload Generator for MongoDB Clusters
+# plgm: Percona Load Generator for MongoDB Clusters
 
-**genMongoLoad** is a high-performance tool written in Go, designed to effortlessly generate data and simulate heavy workloads for both sharded and non-sharded MongoDB clusters.
+**plgm** is a high-performance tool written in Go, designed to effortlessly generate data and simulate heavy workloads for both sharded and non-sharded MongoDB clusters.
 
 It simulates real-world usage patterns by generating random data using robust BSON data types and executing standard CRUD operations (Find, Insert, Update, Delete) based on configurable ratios.
 
@@ -25,17 +25,17 @@ Navigate to the [Releases] page and download the .tar.gz file matching your oper
 
 ```bash
 # Example for Linux
-tar -xzvf genMongoLoad-linux-amd64.tar.gz
+tar -xzvf plgm-linux-amd64.tar.gz
 
 # Example for Mac (Apple Silicon)
-tar -xzvf genMongoLoad-darwin-arm64.tar.gz
+tar -xzvf plgm-darwin-arm64.tar.gz
 ```
 
 2. Run:
 
 ```bash
 # The extracted binary will have the OS suffix
-./genMongoLoad-linux-amd64 --version
+./plgm-linux-amd64 --version
 ```
 
 **Option B: Build from Source** (Requires Go 1.25+)
@@ -44,14 +44,14 @@ This project includes a `Makefile` to simplify building and packaging.
 
 ```bash
 git clone <repository-url>
-cd mongoDB-workload-generator
+cd plgm
 go mod tidy
 
 # Build a binary for your CURRENT machine only (no .tar.gz)
 make build-local
 
 # Run it
-./bin/genMongoLoad --help
+./bin/plgm --help
 ```
 
 **Cross-Compilation (Build for different OS)**
@@ -63,9 +63,9 @@ If you are preparing binaries for other users (or other servers), use the main b
 make build
 
 # Output:
-# bin/genMongoLoad-linux-amd64.tar.gz
-# bin/genMongoLoad-darwin-amd64.tar.gz
-# bin/genMongoLoad-darwin-arm64.tar.gz
+# bin/plgm-linux-amd64.tar.gz
+# bin/plgm-darwin-amd64.tar.gz
+# bin/plgm-darwin-arm64.tar.gz
 ```
 
 ### Usage
@@ -73,13 +73,13 @@ make build
 To view the full usage guide, including available flags and environment variables, run the help command:
 
 ```bash
-genMongoLoad: A Workload Generator for MongoDB Clusters
-Usage: bin/genMongoLoad [flags] [config_file]
+plgm: Percona Load Generator for MongoDB Clusters
+Usage: bin/plgm [flags] [config_file]
 
 Examples:
-  bin/genMongoLoad                    # Run with default 'config.yaml'
-  bin/genMongoLoad my_test.yaml       # Run with specific config file
-  bin/genMongoLoad --help             # Show this help message
+  bin/plgm                    # Run with default 'config.yaml'
+  bin/plgm my_test.yaml       # Run with specific config file
+  bin/plgm --help             # Show this help message
 
 Flags:
   -config string
@@ -89,57 +89,57 @@ Flags:
 
 Environment Variables (Overrides):
  [Connection]
-  GENMONGOLOAD_URI                    Connection URI
-  GENMONGOLOAD_USERNAME               Database User
-  GENMONGOLOAD_PASSWORD               Database Password (Recommended: Use Prompt)
-  GENMONGOLOAD_DIRECT_CONNECTION      Force direct connection (true/false)
-  GENMONGOLOAD_REPLICA_SET            Replica Set name
-  GENMONGOLOAD_READ_PREFERENCE        nearest
+  PERCONALOAD_URI                    Connection URI
+  PERCONALOAD_USERNAME               Database User
+  PERCONALOAD_PASSWORD               Database Password (Recommended: Use Prompt)
+  PERCONALOAD_DIRECT_CONNECTION      Force direct connection (true/false)
+  PERCONALOAD_REPLICA_SET            Replica Set name
+  PERCONALOAD_READ_PREFERENCE        nearest
 
  [Workload Core]
-  GENMONGOLOAD_DEFAULT_WORKLOAD       Use built-in workload (true/false)
-  GENMONGOLOAD_COLLECTIONS_PATH       Path to collection JSON
-  GENMONGOLOAD_QUERIES_PATH           Path to query JSON
-  GENMONGOLOAD_DURATION               Test duration (e.g. 60s, 5m)
-  GENMONGOLOAD_CONCURRENCY            Number of active workers
-  GENMONGOLOAD_DOCUMENTS_COUNT        Initial seed document count
-  GENMONGOLOAD_DROP_COLLECTIONS       Drop collections on start (true/false)
-  GENMONGOLOAD_SKIP_SEED              Do not seed initial data on start (true/false)
-  GENMONGOLOAD_DEBUG_MODE             Enable verbose logic logs (true/false)
+  PERCONALOAD_DEFAULT_WORKLOAD       Use built-in workload (true/false)
+  PERCONALOAD_COLLECTIONS_PATH       Path to collection JSON
+  PERCONALOAD_QUERIES_PATH           Path to query JSON
+  PERCONALOAD_DURATION               Test duration (e.g. 60s, 5m)
+  PERCONALOAD_CONCURRENCY            Number of active workers
+  PERCONALOAD_DOCUMENTS_COUNT        Initial seed document count
+  PERCONALOAD_DROP_COLLECTIONS       Drop collections on start (true/false)
+  PERCONALOAD_SKIP_SEED              Do not seed initial data on start (true/false)
+  PERCONALOAD_DEBUG_MODE             Enable verbose logic logs (true/false)
 
  [Operation Ratios] (Must sum to ~100)
-  GENMONGOLOAD_FIND_PERCENT           % of ops that are FIND
-  GENMONGOLOAD_UPDATE_PERCENT         % of ops that are UPDATE
-  GENMONGOLOAD_INSERT_PERCENT         % of ops that are INSERT
-  GENMONGOLOAD_DELETE_PERCENT         % of ops that are DELETE
-  GENMONGOLOAD_AGGREGATE_PERCENT      % of ops that are AGGREGATE
+  PERCONALOAD_FIND_PERCENT           % of ops that are FIND
+  PERCONALOAD_UPDATE_PERCENT         % of ops that are UPDATE
+  PERCONALOAD_INSERT_PERCENT         % of ops that are INSERT
+  PERCONALOAD_DELETE_PERCENT         % of ops that are DELETE
+  PERCONALOAD_AGGREGATE_PERCENT      % of ops that are AGGREGATE
 
  [Performance Optimization]
-  GENMONGOLOAD_FIND_BATCH_SIZE        Docs returned per cursor batch
-  GENMONGOLOAD_FIND_LIMIT             Max docs per Find query
-  GENMONGOLOAD_INSERT_CACHE_SIZE      Generator buffer size
-  GENMONGOLOAD_OP_TIMEOUT_MS          Soft timeout per DB op (ms)
-  GENMONGOLOAD_RETRY_ATTEMPTS         Retry attempts for failures
-  GENMONGOLOAD_RETRY_BACKOFF_MS       Wait time between retries (ms)
-  GENMONGOLOAD_STATUS_REFRESH_RATE_SEC Status report interval (sec)
+  PERCONALOAD_FIND_BATCH_SIZE        Docs returned per cursor batch
+  PERCONALOAD_FIND_LIMIT             Max docs per Find query
+  PERCONALOAD_INSERT_CACHE_SIZE      Generator buffer size
+  PERCONALOAD_OP_TIMEOUT_MS          Soft timeout per DB op (ms)
+  PERCONALOAD_RETRY_ATTEMPTS         Retry attempts for failures
+  PERCONALOAD_RETRY_BACKOFF_MS       Wait time between retries (ms)
+  PERCONALOAD_STATUS_REFRESH_RATE_SEC Status report interval (sec)
   GOMAXPROCS                          Go Runtime CPU limit
 ```
 
 ### 2. Run Default Workload
-The tool comes with a built-in default workload useful for immediate testing and get you started right away.
+plgm comes with a built-in default workload useful for immediate testing and get you started right away.
 ```bash
 # Edit config.yaml to set your URI, then run:
-./bin/genMongoLoad
+./bin/plgm
 ```
 
-**Note about default workload:** genMongoLoad comes pre-configured with a [default collection](./resources/collections/default.json) and [default queries](./resources/queries/default.json). If you do not provide any parameters and leave the configuration setting `default_workload: true`, this default workload will be used.
+**Note about default workload:** plgm comes pre-configured with a [default collection](./resources/collections/default.json) and [default queries](./resources/queries/default.json). If you do not provide any parameters and leave the configuration setting `default_workload: true`, this default workload will be used.
 
 If you wish to use a different default workload, you can replace these two files with your own default.json files in the same paths. This allows you to define a different collection and set of queries as the default workload.
 
-**Note on config file usage:** If you do not specify the config file name (above example), genMongoLoad will use the [config.yaml](./config.yaml) by default. You can create separate configuration files if you wish and then pass it as an argument:
+**Note on config file usage:** If you do not specify the config file name (above example), plgm will use the [config.yaml](./config.yaml) by default. You can create separate configuration files if you wish and then pass it as an argument:
 
 ```bash
-./bin/genMongoLoad /path/to/some/custom_config.yaml
+./bin/plgm /path/to/some/custom_config.yaml
 ```
 
 ### 3. Additional Workloads
@@ -160,7 +160,7 @@ Prefer running in a container? We have a dedicated guide for building Docker ima
 
 ## Configuration
 
-genMongoLoad is configured primarily through its [config.yaml](./config.yaml) file. This makes it easier to save and version-control your test scenarios.
+plgm is configured primarily through its [config.yaml](./config.yaml) file. This makes it easier to save and version-control your test scenarios.
 
 ### Environment Variable Overrides
 You can override any setting in `config.yaml` using environment variables. This is useful for CI/CD pipelines, Kubernetes deployments, or quick runtime adjustments without editing the file. These are all the available ENV vars you can configure:
@@ -168,48 +168,48 @@ You can override any setting in `config.yaml` using environment variables. This 
 | Environment Variable | Description | Example |
 | :--- | :--- | :--- |
 | **Connection** | | |
-| `GENMONGOLOAD_URI` | Target MongoDB connection URI | `mongodb://user:pass@host:27017` |
-| `GENMONGOLOAD_DIRECT_CONNECTION` | Force direct connection (bypass topology discovery) | `true` |
-| `GENMONGOLOAD_REPLICA_SET` | Replica Set name (required for sharded clusters/RS) | `rs0` |
-| `GENMONGOLOAD_READ_PREFERENCE` | By default, an application directs its read operations to the primary member in a replica set. You can specify a read preference to send read operations to secondaries. | `nearest` |
-| `GENMONGOLOAD_USERNAME` |	Database User | `admin` |
-| `GENMONGOLOAD_PASSWORD` |	Database Password (if not set, genMongoLoad will prompt) | `password123` |
+| `PERCONALOAD_URI` | Target MongoDB connection URI | `mongodb://user:pass@host:27017` |
+| `PERCONALOAD_DIRECT_CONNECTION` | Force direct connection (bypass topology discovery) | `true` |
+| `PERCONALOAD_REPLICA_SET` | Replica Set name (required for sharded clusters/RS) | `rs0` |
+| `PERCONALOAD_READ_PREFERENCE` | By default, an application directs its read operations to the primary member in a replica set. You can specify a read preference to send read operations to secondaries. | `nearest` |
+| `PERCONALOAD_USERNAME` |	Database User | `admin` |
+| `PERCONALOAD_PASSWORD` |	Database Password (if not set, plgm will prompt) | `password123` |
 | **Workload Control** | | |
-| `GENMONGOLOAD_CONCURRENCY` | Number of active worker goroutines | `50` |
-| `GENMONGOLOAD_DURATION` | Test duration (Go duration string) | `5m`, `60s` |
-| `GENMONGOLOAD_DEFAULT_WORKLOAD` | Use built-in "Flights" workload (`true`/`false`) | `false` |
-| `GENMONGOLOAD_COLLECTIONS_PATH` | Path to custom collection JSON files | `./schemas` |
-| `GENMONGOLOAD_QUERIES_PATH` | Path to custom query JSON files | `./queries` |
-| `GENMONGOLOAD_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
-| `GENMONGOLOAD_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
-| `GENMONGOLOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
-| `GENMONGOLOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
+| `PERCONALOAD_CONCURRENCY` | Number of active worker goroutines | `50` |
+| `PERCONALOAD_DURATION` | Test duration (Go duration string) | `5m`, `60s` |
+| `PERCONALOAD_DEFAULT_WORKLOAD` | Use built-in "Flights" workload (`true`/`false`) | `false` |
+| `PERCONALOAD_COLLECTIONS_PATH` | Path to custom collection JSON files | `./schemas` |
+| `PERCONALOAD_QUERIES_PATH` | Path to custom query JSON files | `./queries` |
+| `PERCONALOAD_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
+| `PERCONALOAD_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
+| `PERCONALOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
+| `PERCONALOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
 | **Operation Ratios** | (Must sum to ~100) | |
-| `GENMONGOLOAD_FIND_PERCENT` | Percentage of Find operations | `55` |
-| `GENMONGOLOAD_INSERT_PERCENT` | Percentage of Insert operations | `20` |
-| `GENMONGOLOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
-| `GENMONGOLOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
-| `GENMONGOLOAD_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
+| `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `55` |
+| `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations | `20` |
+| `PERCONALOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
+| `PERCONALOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
+| `PERCONALOAD_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
 | **Performance Optimization** | | |
-| `GENMONGOLOAD_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
-| `GENMONGOLOAD_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
-| `GENMONGOLOAD_INSERT_CACHE_SIZE` | Size of the document generation buffer | `1000` |
-| `GENMONGOLOAD_OP_TIMEOUT_MS` | Soft timeout for individual DB operations (ms) | `500` |
-| `GENMONGOLOAD_RETRY_ATTEMPTS` | Number of retries for transient errors | `3` |
-| `GENMONGOLOAD_RETRY_BACKOFF_MS` | Wait time between retries (ms) | `10` |
-| `GENMONGOLOAD_STATUS_REFRESH_RATE_SEC` | How often to print stats to console (sec) | `5` |
+| `PERCONALOAD_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
+| `PERCONALOAD_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
+| `PERCONALOAD_INSERT_CACHE_SIZE` | Size of the document generation buffer | `1000` |
+| `PERCONALOAD_OP_TIMEOUT_MS` | Soft timeout for individual DB operations (ms) | `500` |
+| `PERCONALOAD_RETRY_ATTEMPTS` | Number of retries for transient errors | `3` |
+| `PERCONALOAD_RETRY_BACKOFF_MS` | Wait time between retries (ms) | `10` |
+| `PERCONALOAD_STATUS_REFRESH_RATE_SEC` | How often to print stats to console (sec) | `5` |
 
 
 **Example:**
 ```bash
-GENMONGOLOAD_CONCURRENCY=50 GENMONGOLOAD_DURATION=5m ./bin/genMongoLoad
+PERCONALOAD_CONCURRENCY=50 PERCONALOAD_DURATION=5m ./bin/plgm
 ```
 
 ---
 
 ## Functionality
 
-When executed, genMongoLoad performs the following steps:
+When executed, plgm performs the following steps:
 
 1.  **Initialization:** Connects to the database and loads collection/query definitions.
 2.  **Setup:**
@@ -226,7 +226,7 @@ When executed, genMongoLoad performs the following steps:
 
 ### Sample Output
 
-![genMongoLoad Demo](./genMongoLoadDemo.gif)
+![plgm Demo](./plgmDemo.gif)
 
 ---
 
@@ -269,9 +269,9 @@ To run your own workload against your own schema:
 
 3.  **Run:**
     ```bash
-    export GENMONGOLOAD_COLLECTIONS_PATH=./my_collection.json
-    export GENMONGOLOAD_QUERIES_PATH=./my_queries.json
-    ./bin/genMongoLoad
+    export PERCONALOAD_COLLECTIONS_PATH=./my_collection.json
+    export PERCONALOAD_QUERIES_PATH=./my_queries.json
+    ./bin/plgm
     ```
 
 ### Supported Data Types
@@ -285,23 +285,23 @@ To run your own workload against your own schema:
 
 ## Performance Optimization
 
-genMongoLoad is designed to utilize maximum system resources by default, but it can be fine-tuned to fit specific hardware constraints or testing scenarios.
+plgm is designed to utilize maximum system resources by default, but it can be fine-tuned to fit specific hardware constraints or testing scenarios.
 
 ### 1. CPU Utilization (`GOMAXPROCS`)
 
-By default, genMongoLoad automatically detects and schedules work across **all available logical CPUs**. You generally do not need to configure this.
+By default, plgm automatically detects and schedules work across **all available logical CPUs**. You generally do not need to configure this.
 
 However, if you are running in a constrained environment (e.g., a shared CI runner or a container with strict CPU limits) or if you want to throttle the generator's CPU usage, you can override this via the standard Go environment variable:
 
 ```bash
-# Limit genMongoLoad to use only 2 CPU cores
+# Limit plgm to use only 2 CPU cores
 export GOMAXPROCS=2
-./genmongoload
+./plgm
 ```
 
 ### 2. Configuration Optimization (`config.yaml`)
 
-You can fine-tune genMongoLoad internal behavior by adjusting the parameters in `config.yaml`.
+You can fine-tune plgm internal behavior by adjusting the parameters in `config.yaml`.
 
 #### Concurrency & Workers
 * **`concurrency`**: Controls the number of "Active Workers" continuously executing operations against the database.
@@ -333,10 +333,10 @@ These settings affect the efficiency of individual database operations and memor
     * *Default:* `1000`
 
 #### Timeouts & Reliability
-Control how genMongoLoad reacts to network lag or database pressure.
+Control how plgm reacts to network lag or database pressure.
 
 * **`op_timeout_ms`**: A hard timeout for individual database operations.
-    * *Tip:* Lowering this allows genMongoLoad to fail fast and retry rather than hanging on stalled requests.
+    * *Tip:* Lowering this allows plgm to fail fast and retry rather than hanging on stalled requests.
     * *Default:* `500` (0.5 seconds)
 * **`retry_attempts`** & **`retry_backoff_ms`**: Logic for handling transient failures.
     * *Tip:* For stress testing, you might want to set `retry_attempts: 0` to see raw failure rates immediately.

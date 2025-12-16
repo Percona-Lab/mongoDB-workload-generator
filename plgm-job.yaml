@@ -1,32 +1,32 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: genmongoload
+  name: plgm
   namespace: lab
 spec:
   template:
     spec:
       containers:
-      - name: genmongoload
-        image: genmongoload:latest
+      - name: plgm
+        image: plgm:latest
         imagePullPolicy: Never  # <--- used for local Docker Desktop images
-        command: ["./genMongoLoad", "config.yaml"]
+        command: ["./plgm", "config.yaml"]
         env:
         # Override the URI in config.yaml with the internal K8s DNS
         # This talks directly to the pod
-        - name: GENMONGOLOAD_URI
+        - name: PERCONALOAD_URI
           value: "mongodb://test-rs-0.test-rs.lab.svc.cluster.local:27017,test-rs-1.test-rs.lab.svc.cluster.local:27017,test-rs-2.test-rs.lab.svc.cluster.local:27017/?authSource=admin"
-        - name: GENMONGOLOAD_USERNAME
+        - name: PERCONALOAD_USERNAME
           value: "root"
-        - name: GENMONGOLOAD_PASSWORD
+        - name: PERCONALOAD_PASSWORD
           value: "percona"
-        - name: GENMONGOLOAD_REPLICA_SET
+        - name: PERCONALOAD_REPLICA_SET
           value: "rs"
-        - name: GENMONGOLOAD_READ_PREFERENCE
+        - name: PERCONALOAD_READ_PREFERENCE
           value: "nearest"  
-        - name: GENMONGOLOAD_CONCURRENCY
+        - name: PERCONALOAD_CONCURRENCY
           value: "40"
-        - name: GENMONGOLOAD_DIRECT_CONNECTION
+        - name: PERCONALOAD_DIRECT_CONNECTION
           value: "false"  
       restartPolicy: Never
   backoffLimit: 0

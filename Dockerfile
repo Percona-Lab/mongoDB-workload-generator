@@ -13,7 +13,7 @@ ENV CGO_ENABLED=0
 
 # Build the binary
 # We target main.go 
-RUN go build -o genMongoLoad cmd/genMongoLoad/main.go
+RUN go build -o plgm cmd/plgm/main.go
 
 # --- Stage 2: Runner ---
 # We use a tiny Alpine Linux image for the final container
@@ -22,7 +22,7 @@ FROM alpine:latest
 WORKDIR /app
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /app/genMongoLoad .
+COPY --from=builder /app/plgm .
 
 # Copy the config file so the app can read it
 COPY config.yaml .
@@ -31,4 +31,4 @@ COPY config.yaml .
 COPY resources/ resources/
 
 # Command to run when the container starts
-CMD ["./genMongoLoad", "config.yaml"]
+CMD ["./plgm", "config.yaml"]

@@ -110,35 +110,35 @@ func applyDefaults(cfg *AppConfig) {
 }
 
 func applyEnvOverrides(cfg *AppConfig) {
-	if v := os.Getenv("GENMONGOLOAD_USERNAME"); v != "" {
+	if v := os.Getenv("PERCONALOAD_USERNAME"); v != "" {
 		cfg.ConnectionParams.Username = v
 	}
-	if v := os.Getenv("GENMONGOLOAD_PASSWORD"); v != "" {
+	if v := os.Getenv("PERCONALOAD_PASSWORD"); v != "" {
 		cfg.ConnectionParams.Password = v
 	}
-	if v := os.Getenv("GENMONGOLOAD_DEFAULT_WORKLOAD"); v != "" {
+	if v := os.Getenv("PERCONALOAD_DEFAULT_WORKLOAD"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			cfg.DefaultWorkload = b
 		}
 	}
-	if envDebug := os.Getenv("GENMONGOLOAD_DEBUG_MODE"); envDebug != "" {
+	if envDebug := os.Getenv("PERCONALOAD_DEBUG_MODE"); envDebug != "" {
 		if b, err := strconv.ParseBool(envDebug); err == nil {
 			cfg.DebugMode = b
 		}
 	}
-	if envURI := os.Getenv("GENMONGOLOAD_URI"); envURI != "" {
+	if envURI := os.Getenv("PERCONALOAD_URI"); envURI != "" {
 		cfg.URI = envURI
 	}
-	if v := os.Getenv("GENMONGOLOAD_DIRECT_CONNECTION"); v != "" {
+	if v := os.Getenv("PERCONALOAD_DIRECT_CONNECTION"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			cfg.ConnectionParams.DirectConnection = b
 		}
 	}
 	// Check if the environment variable is explicitly defined (even if empty)
-	if v, exists := os.LookupEnv("GENMONGOLOAD_REPLICA_SET"); exists {
+	if v, exists := os.LookupEnv("PERCONALOAD_REPLICA_SET"); exists {
 		cfg.ConnectionParams.ReplicaSetName = v
 	}
-	if v, exists := os.LookupEnv("GENMONGOLOAD_READ_PREFERENCE"); exists {
+	if v, exists := os.LookupEnv("PERCONALOAD_READ_PREFERENCE"); exists {
 		cfg.ConnectionParams.ReadPreference = v
 	}
 
@@ -146,15 +146,15 @@ func applyEnvOverrides(cfg *AppConfig) {
 	// Custom Workload Logic:
 	// If the user provides custom paths via environment variables, we infer
 	// that they want to run a custom workload, so we force DefaultWorkload to false.
-	// This overrides any previous setting (YAML or GENMONGOLOAD_DEFAULT_WORKLOAD).
+	// This overrides any previous setting (YAML or PERCONALOAD_DEFAULT_WORKLOAD).
 	// -------------------------------------------------------------------------
 	customWorkloadEnv := false
 
-	if envCollectionsPath := os.Getenv("GENMONGOLOAD_COLLECTIONS_PATH"); envCollectionsPath != "" {
+	if envCollectionsPath := os.Getenv("PERCONALOAD_COLLECTIONS_PATH"); envCollectionsPath != "" {
 		cfg.CollectionsPath = envCollectionsPath
 		customWorkloadEnv = true
 	}
-	if envQueriesPath := os.Getenv("GENMONGOLOAD_QUERIES_PATH"); envQueriesPath != "" {
+	if envQueriesPath := os.Getenv("PERCONALOAD_QUERIES_PATH"); envQueriesPath != "" {
 		cfg.QueriesPath = envQueriesPath
 		customWorkloadEnv = true
 	}
@@ -164,86 +164,86 @@ func applyEnvOverrides(cfg *AppConfig) {
 	}
 	// -------------------------------------------------------------------------
 
-	if envDrop := os.Getenv("GENMONGOLOAD_DROP_COLLECTIONS"); envDrop != "" {
+	if envDrop := os.Getenv("PERCONALOAD_DROP_COLLECTIONS"); envDrop != "" {
 		if b, err := strconv.ParseBool(envDrop); err == nil {
 			cfg.DropCollections = b
 		}
 	}
-	if envDrop := os.Getenv("GENMONGOLOAD_SKIP_SEED"); envDrop != "" {
+	if envDrop := os.Getenv("PERCONALOAD_SKIP_SEED"); envDrop != "" {
 		if b, err := strconv.ParseBool(envDrop); err == nil {
 			cfg.SkipSeed = b
 		}
 	}
-	if envDocs := os.Getenv("GENMONGOLOAD_DOCUMENTS_COUNT"); envDocs != "" {
+	if envDocs := os.Getenv("PERCONALOAD_DOCUMENTS_COUNT"); envDocs != "" {
 		if n, err := strconv.Atoi(envDocs); err == nil && n >= 0 {
 			cfg.DocumentsCount = n
 		}
 	}
-	if envConcurrency := os.Getenv("GENMONGOLOAD_CONCURRENCY"); envConcurrency != "" {
+	if envConcurrency := os.Getenv("PERCONALOAD_CONCURRENCY"); envConcurrency != "" {
 		if n, err := strconv.Atoi(envConcurrency); err == nil && n > 0 {
 			cfg.Concurrency = n
 		}
 	}
-	if envDuration := os.Getenv("GENMONGOLOAD_DURATION"); envDuration != "" {
+	if envDuration := os.Getenv("PERCONALOAD_DURATION"); envDuration != "" {
 		cfg.Duration = envDuration
 	}
-	if p := os.Getenv("GENMONGOLOAD_FIND_PERCENT"); p != "" {
+	if p := os.Getenv("PERCONALOAD_FIND_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.FindPercent = n
 		}
 	}
-	if p := os.Getenv("GENMONGOLOAD_UPDATE_PERCENT"); p != "" {
+	if p := os.Getenv("PERCONALOAD_UPDATE_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.UpdatePercent = n
 		}
 	}
-	if p := os.Getenv("GENMONGOLOAD_DELETE_PERCENT"); p != "" {
+	if p := os.Getenv("PERCONALOAD_DELETE_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.DeletePercent = n
 		}
 	}
-	if p := os.Getenv("GENMONGOLOAD_INSERT_PERCENT"); p != "" {
+	if p := os.Getenv("PERCONALOAD_INSERT_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.InsertPercent = n
 		}
 	}
-	if p := os.Getenv("GENMONGOLOAD_AGGREGATE_PERCENT"); p != "" {
+	if p := os.Getenv("PERCONALOAD_AGGREGATE_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.AggregatePercent = n
 		}
 	}
 	// runtime optimization
-	if v := os.Getenv("GENMONGOLOAD_FIND_BATCH_SIZE"); v != "" {
+	if v := os.Getenv("PERCONALOAD_FIND_BATCH_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.FindBatchSize = n
 		}
 	}
-	if v := os.Getenv("GENMONGOLOAD_FIND_LIMIT"); v != "" {
+	if v := os.Getenv("PERCONALOAD_FIND_LIMIT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.FindLimit = int64(n)
 		}
 	}
-	if v := os.Getenv("GENMONGOLOAD_INSERT_CACHE_SIZE"); v != "" {
+	if v := os.Getenv("PERCONALOAD_INSERT_CACHE_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.InsertCacheSize = n
 		}
 	}
-	if v := os.Getenv("GENMONGOLOAD_OP_TIMEOUT_MS"); v != "" {
+	if v := os.Getenv("PERCONALOAD_OP_TIMEOUT_MS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.OpTimeoutMs = n
 		}
 	}
-	if v := os.Getenv("GENMONGOLOAD_RETRY_ATTEMPTS"); v != "" {
+	if v := os.Getenv("PERCONALOAD_RETRY_ATTEMPTS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.RetryAttempts = n
 		}
 	}
-	if v := os.Getenv("GENMONGOLOAD_RETRY_BACKOFF_MS"); v != "" {
+	if v := os.Getenv("PERCONALOAD_RETRY_BACKOFF_MS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.RetryBackoffMs = n
 		}
 	}
-	if v := os.Getenv("GENMONGOLOAD_STATUS_REFRESH_RATE_SEC"); v != "" {
+	if v := os.Getenv("PERCONALOAD_STATUS_REFRESH_RATE_SEC"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.StatusRefreshRateSec = n
 		}
