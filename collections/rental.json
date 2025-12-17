@@ -1,0 +1,80 @@
+[
+    {
+        "databaseName": "rental",
+        "collectionName": "cars",
+        "shardConfig": {
+            "shardCollection": "rental.cars",
+            "key": {
+                "rental_id": "hashed"
+            }
+        },
+        "fieldName": {
+            "rental_id": {
+                "type": "int"
+            },
+            "first_name": {
+                "type": "string",
+                "provider": "first_name"
+            },
+            "last_name": {
+                "type": "string",
+                "provider": "last_name"
+            },
+            "email": {
+                "type": "string",
+                "provider": "email",
+                "maxLength": 25
+            },
+            "rental_info": {
+                "type": "object",
+                "provider": "rental_info"
+            },
+            "car_type": {
+                "type": "string",
+                "provider": "car_type"
+            },
+            "license_plate": {
+                "type": "string",
+                "provider": "license_plate"
+            },
+            "price_usd": {
+                "type": "double"
+            },
+            "options": {
+                "type": "object",
+                "provider": "rental_options"
+            },
+            "drivers": {
+                "type": "array",
+                "provider": "drivers"
+            }
+        },
+        "indexes": [
+            {
+                "keys": {
+                    "rental_id": 1,
+                    "car_type": 1
+                }
+            },
+            {
+                "keys": {
+                    "rental_id": 1,
+                    "pickup_location": 1,
+                    "dropoff_location": 1
+                }
+            },
+            {
+                "keys": {
+                    "rental_id": 1,
+                    "rental_date": 1,
+                    "return_date": 1
+                }
+            },
+            {
+                "keys": {
+                    "license_plate": 1
+                }
+            }
+        ]
+    }
+]

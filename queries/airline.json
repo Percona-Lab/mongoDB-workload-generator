@@ -20,7 +20,8 @@
         "collection": "flights",
         "operation": "find",
         "filter": {
-            "flight_id": "<int>"
+            "flight_id": "<int>",
+            "gate": "<gate>"
         },
         "projection": {
             "flight_id": 1,
@@ -30,5 +31,23 @@
             "_id": 0
         },
         "limit": 5
-    }
+    },
+    {
+        "database": "airline",
+        "collection": "flights",
+        "operation": "find",
+        "filter": {
+            "duration_minutes": {
+                "$lt": "<int>"
+            }
+        },
+        "projection": {
+            "flight_id": 1,
+            "origin": 1,
+            "destination": 1,
+            "duration_minutes": 1,
+            "_id": 0
+        },
+        "limit": 5
+    }  
 ]
