@@ -73,6 +73,7 @@ make build
 To view the full usage guide, including available flags and environment variables, run the help command:
 
 ```bash
+bin/plgm --help
 plgm: Percona Load Generator for MongoDB Clusters
 Usage: bin/plgm [flags] [config_file]
 
@@ -89,38 +90,40 @@ Flags:
 
 Environment Variables (Overrides):
  [Connection]
-  PERCONALOAD_URI                    Connection URI
-  PERCONALOAD_USERNAME               Database User
-  PERCONALOAD_PASSWORD               Database Password (Recommended: Use Prompt)
-  PERCONALOAD_DIRECT_CONNECTION      Force direct connection (true/false)
-  PERCONALOAD_REPLICA_SET            Replica Set name
-  PERCONALOAD_READ_PREFERENCE        nearest
+  PERCONALOAD_URI                     Connection URI
+  PERCONALOAD_USERNAME                Database User
+  PERCONALOAD_PASSWORD                Database Password (Recommended: Use Prompt)
+  PERCONALOAD_DIRECT_CONNECTION       Force direct connection (true/false)
+  PERCONALOAD_REPLICA_SET             Replica Set name
+  PERCONALOAD_READ_PREFERENCE         nearest
 
  [Workload Core]
-  PERCONALOAD_DEFAULT_WORKLOAD       Use built-in workload (true/false)
-  PERCONALOAD_COLLECTIONS_PATH       Path to collection JSON
-  PERCONALOAD_QUERIES_PATH           Path to query JSON
-  PERCONALOAD_DURATION               Test duration (e.g. 60s, 5m)
-  PERCONALOAD_CONCURRENCY            Number of active workers
-  PERCONALOAD_DOCUMENTS_COUNT        Initial seed document count
-  PERCONALOAD_DROP_COLLECTIONS       Drop collections on start (true/false)
-  PERCONALOAD_SKIP_SEED              Do not seed initial data on start (true/false)
-  PERCONALOAD_DEBUG_MODE             Enable verbose logic logs (true/false)
+  PERCONALOAD_DEFAULT_WORKLOAD        Use built-in workload (true/false)
+  PERCONALOAD_COLLECTIONS_PATH        Path to collection JSON
+  PERCONALOAD_QUERIES_PATH            Path to query JSON
+  PERCONALOAD_DURATION                Test duration (e.g. 60s, 5m)
+  PERCONALOAD_CONCURRENCY             Number of active workers
+  PERCONALOAD_DOCUMENTS_COUNT         Initial seed document count
+  PERCONALOAD_DROP_COLLECTIONS        Drop collections on start (true/false)
+  PERCONALOAD_SKIP_SEED               Do not seed initial data on start (true/false)
+  PERCONALOAD_DEBUG_MODE              Enable verbose logic logs (true/false)
+  PERCONALOAD_USE_TRANSACTIONS        Enable transactional workloads (true/false)
 
  [Operation Ratios] (Must sum to ~100)
-  PERCONALOAD_FIND_PERCENT           % of ops that are FIND
-  PERCONALOAD_UPDATE_PERCENT         % of ops that are UPDATE
-  PERCONALOAD_INSERT_PERCENT         % of ops that are INSERT
-  PERCONALOAD_DELETE_PERCENT         % of ops that are DELETE
-  PERCONALOAD_AGGREGATE_PERCENT      % of ops that are AGGREGATE
+  PERCONALOAD_FIND_PERCENT            % of ops that are FIND
+  PERCONALOAD_UPDATE_PERCENT          % of ops that are UPDATE
+  PERCONALOAD_INSERT_PERCENT          % of ops that are INSERT
+  PERCONALOAD_DELETE_PERCENT          % of ops that are DELETE
+  PERCONALOAD_AGGREGATE_PERCENT       % of ops that are AGGREGATE
+  PERCONALOAD_TRANSACTION_PERCENT     % of ops that are TRANSACTIONAL
 
  [Performance Optimization]
-  PERCONALOAD_FIND_BATCH_SIZE        Docs returned per cursor batch
-  PERCONALOAD_FIND_LIMIT             Max docs per Find query
-  PERCONALOAD_INSERT_CACHE_SIZE      Generator buffer size
-  PERCONALOAD_OP_TIMEOUT_MS          Soft timeout per DB op (ms)
-  PERCONALOAD_RETRY_ATTEMPTS         Retry attempts for failures
-  PERCONALOAD_RETRY_BACKOFF_MS       Wait time between retries (ms)
+  PERCONALOAD_FIND_BATCH_SIZE         Docs returned per cursor batch
+  PERCONALOAD_FIND_LIMIT              Max docs per Find query
+  PERCONALOAD_INSERT_CACHE_SIZE       Generator buffer size
+  PERCONALOAD_OP_TIMEOUT_MS           Soft timeout per DB op (ms)
+  PERCONALOAD_RETRY_ATTEMPTS          Retry attempts for failures
+  PERCONALOAD_RETRY_BACKOFF_MS        Wait time between retries (ms)
   PERCONALOAD_STATUS_REFRESH_RATE_SEC Status report interval (sec)
   GOMAXPROCS                          Go Runtime CPU limit
 ```
@@ -186,7 +189,7 @@ You can override any setting in `config.yaml` using environment variables. This 
 | `debug_mode` | `PERCONALOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
 | `use_transactions` | `PERCONALOAD_USE_TRANSACTIONS` | Enable Transactional Workloads (`true`/`false`) | `false` |
 | **Operation Ratios** | | (Must sum to ~100) | |
-| `find_percent` | `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `55` |
+| `find_percent` | `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `50` |
 | `insert_percent` | `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `20` |
 | `update_percent` | `PERCONALOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
 | `delete_percent` | `PERCONALOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
@@ -366,7 +369,7 @@ Control how plgm reacts to network lag or database pressure.
 
 ### 3. Custom Connection Parameters (`custom_params`)
 
-In the `config.yaml`, the `custom_params` section allows you to pass arbitrary options directly to the MongoDB driver's connection string. These are critical for tuning network throughput and security.
+In the `config.yaml`, the `custom_params` section allows you to pass arbitrary options directly to the MongoDB driver's connection string. These are critical for tuning network throughput and security. Here are some examples you can use, all MongoDB connection parameters are supported.
 
 ```yaml
 custom_params:

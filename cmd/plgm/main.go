@@ -58,6 +58,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DROP_COLLECTIONS", "Drop collections on start (true/false)")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_SKIP_SEED", "Do not seed initial data on start (true/false)")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DEBUG_MODE", "Enable verbose logic logs (true/false)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_USE_TRANSACTIONS", "Enable transactional workloads (true/false)")
 
 		fmt.Fprintf(os.Stderr, "\n [Operation Ratios] (Must sum to ~100)\n")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_FIND_PERCENT", "% of ops that are FIND")
@@ -65,6 +66,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_INSERT_PERCENT", "% of ops that are INSERT")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DELETE_PERCENT", "% of ops that are DELETE")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_AGGREGATE_PERCENT", "% of ops that are AGGREGATE")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_TRANSACTION_PERCENT", "% of ops that are TRANSACTIONAL")
 
 		fmt.Fprintf(os.Stderr, "\n [Performance Optimization]\n")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_FIND_BATCH_SIZE", "Docs returned per cursor batch")
