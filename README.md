@@ -163,41 +163,41 @@ Prefer running in a container? We have a dedicated guide for building Docker ima
 plgm is configured primarily through its [config.yaml](./config.yaml) file. This makes it easier to save and version-control your test scenarios.
 
 ### Environment Variable Overrides
-You can override any setting in `config.yaml` using environment variables. This is useful for CI/CD pipelines, Kubernetes deployments, or quick runtime adjustments without editing the file. These are all the available ENV vars you can configure:
+You can override any setting in `config.yaml` using environment variables. This is useful for CI/CD pipelines, Kubernetes deployments, or quick runtime adjustments without editing the file. These are all the available ENV vars you can configure and each corresponding setting in the [config.yaml](./config.yaml) file:
 
-| Environment Variable | Description | Example |
-| :--- | :--- | :--- |
-| **Connection** | | |
-| `PERCONALOAD_URI` | Target MongoDB connection URI | `mongodb://user:pass@host:27017` |
-| `PERCONALOAD_DIRECT_CONNECTION` | Force direct connection (bypass topology discovery) | `true` |
-| `PERCONALOAD_REPLICA_SET` | Replica Set name (required for sharded clusters/RS) | `rs0` |
-| `PERCONALOAD_READ_PREFERENCE` | By default, an application directs its read operations to the primary member in a replica set. You can specify a read preference to send read operations to secondaries. | `nearest` |
-| `PERCONALOAD_USERNAME` |	Database User | `admin` |
-| `PERCONALOAD_PASSWORD` |	Database Password (if not set, plgm will prompt) | `password123` |
-| **Workload Control** | | |
-| `PERCONALOAD_CONCURRENCY` | Number of active worker goroutines | `50` |
-| `PERCONALOAD_DURATION` | Test duration (Go duration string) | `5m`, `60s` |
-| `PERCONALOAD_DEFAULT_WORKLOAD` | Use built-in "Flights" workload (`true`/`false`) | `false` |
-| `PERCONALOAD_COLLECTIONS_PATH` | Path to custom collection JSON files | `./schemas` |
-| `PERCONALOAD_QUERIES_PATH` | Path to custom query JSON files | `./queries` |
-| `PERCONALOAD_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
-| `PERCONALOAD_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
-| `PERCONALOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
-| `PERCONALOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
-| **Operation Ratios** | (Must sum to ~100) | |
-| `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `55` |
-| `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations | `20` |
-| `PERCONALOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
-| `PERCONALOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
-| `PERCONALOAD_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
-| **Performance Optimization** | | |
-| `PERCONALOAD_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
-| `PERCONALOAD_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
-| `PERCONALOAD_INSERT_CACHE_SIZE` | Size of the document generation buffer | `1000` |
-| `PERCONALOAD_OP_TIMEOUT_MS` | Soft timeout for individual DB operations (ms) | `500` |
-| `PERCONALOAD_RETRY_ATTEMPTS` | Number of retries for transient errors | `3` |
-| `PERCONALOAD_RETRY_BACKOFF_MS` | Wait time between retries (ms) | `10` |
-| `PERCONALOAD_STATUS_REFRESH_RATE_SEC` | How often to print stats to console (sec) | `5` |
+| Config Setting | Environment Variable | Description | Example |
+| :--- | :--- | :--- | :--- |
+| **Connection** | | | |
+| `uri` | `PERCONALOAD_URI` | Target MongoDB connection URI | `mongodb://user:pass@host:27017` |
+| `direct_connection` | `PERCONALOAD_DIRECT_CONNECTION` | Force direct connection (bypass topology discovery) | `true` |
+| `replicaset_name` | `PERCONALOAD_REPLICA_SET` | Replica Set name (required for sharded clusters/RS) | `rs0` |
+| `read_preference` | `PERCONALOAD_READ_PREFERENCE` | By default, an application directs its read operations to the primary member in a replica set. You can specify a read preference to send read operations to secondaries. | `nearest` |
+| `username` | `PERCONALOAD_USERNAME` |	Database User | `admin` |
+| ***can not be set via config*** | `PERCONALOAD_PASSWORD` |	Database Password (if not set, plgm will prompt) | `password123` |
+| **Workload Control** | | | |
+| `concurrency` | `PERCONALOAD_CONCURRENCY` | Number of active worker goroutines | `50` |
+| `duration` | `PERCONALOAD_DURATION` | Test duration (Go duration string) | `5m`, `60s` |
+| `default_workload` | `PERCONALOAD_DEFAULT_WORKLOAD` | Use built-in "Flights" workload (`true`/`false`) | `false` |
+| `collections_path` | `PERCONALOAD_COLLECTIONS_PATH` | Path to custom collection JSON files | `./schemas` |
+| `queries_path` | `PERCONALOAD_QUERIES_PATH` | Path to custom query JSON files | `./queries` |
+| `documents_count` | `PERCONALOAD_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
+| `drop_collections` | `PERCONALOAD_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
+| `skip_seed` | `PERCONALOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
+| `debug_mode` | `PERCONALOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
+| **Operation Ratios** | | (Must sum to ~100) | |
+| `find_percent` | `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `55` |
+| `insert_percent` | `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `20` |
+| `update_percent` | `PERCONALOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
+| `delete_percent` | `PERCONALOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
+| `aggregate_percent` | `PERCONALOAD_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
+| **Performance Optimization** | | | |
+| `find_batch_size` | `PERCONALOAD_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
+| `find_limit` | `PERCONALOAD_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
+| `insert_cache_size` | `PERCONALOAD_INSERT_CACHE_SIZE` | Size of the document generation buffer | `1000` |
+| `op_timeout_ms` | `PERCONALOAD_OP_TIMEOUT_MS` | Soft timeout for individual DB operations (ms) | `500` |
+| `retry_attempts` | `PERCONALOAD_RETRY_ATTEMPTS` | Number of retries for transient errors | `3` |
+| `retry_backoff_ms` | `PERCONALOAD_RETRY_BACKOFF_MS` | Wait time between retries (ms) | `10` |
+| `status_refresh_rate_sec` | `PERCONALOAD_STATUS_REFRESH_RATE_SEC` | How often to print stats to console (sec) | `5` |
 
 
 **Example:**
