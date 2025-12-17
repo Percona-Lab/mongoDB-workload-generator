@@ -17,6 +17,7 @@ type QueryDefinition struct {
 	Projection map[string]interface{} `json:"projection,omitempty" yaml:"projection,omitempty"`
 	Limit      int64                  `json:"limit,omitempty" yaml:"limit,omitempty"`
 	Update     map[string]interface{} `json:"update,omitempty" yaml:"update,omitempty"`
+	Upsert     bool                   `json:"upsert,omitempty" yaml:"upsert,omitempty"`
 }
 
 type QueriesFile struct {

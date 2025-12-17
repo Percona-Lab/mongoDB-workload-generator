@@ -43,7 +43,7 @@ tar -xzvf plgm-darwin-arm64.tar.gz
 This project includes a `Makefile` to simplify building and packaging.
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Percona-Lab/percona-load-generator-mongodb.git
 cd plgm
 go mod tidy
 
@@ -182,8 +182,8 @@ You can override any setting in `config.yaml` using environment variables. This 
 | `concurrency` | `PERCONALOAD_CONCURRENCY` | Number of active worker goroutines | `50` |
 | `duration` | `PERCONALOAD_DURATION` | Test duration (Go duration string) | `5m`, `60s` |
 | `default_workload` | `PERCONALOAD_DEFAULT_WORKLOAD` | Use built-in "Flights" workload (`true`/`false`) | `false` |
-| `collections_path` | `PERCONALOAD_COLLECTIONS_PATH` | Path to custom collection JSON files | `./schemas` |
-| `queries_path` | `PERCONALOAD_QUERIES_PATH` | Path to custom query JSON files | `./queries` |
+| `collections_path` | `PERCONALOAD_COLLECTIONS_PATH` | Path to custom collection JSON files (supports directories for multi-collection load) | `./schemas` |
+| `queries_path` | `PERCONALOAD_QUERIES_PATH` | Path to custom query JSON files or directory. | `./queries` |
 | `documents_count` | `PERCONALOAD_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
 | `drop_collections` | `PERCONALOAD_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
 | `skip_seed` | `PERCONALOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
@@ -225,8 +225,9 @@ When executed, plgm performs the following steps:
     * (Optional) Seeds initial data with the number of documents defined by `documents_count` in the config.
 3.  **Workload Execution:**
     * Spawns the configured number of **Active Workers**.
-    * Continuously generates and executes queries (Find, Insert, Update, Delete, Aggregate) based on your configured ratios.
+    * Continuously generates and executes queries (Find, Insert, Update, Delete, Aggregate, Upsert) based on your configured ratios.
     * Generates realistic BSON data for Inserts and Updates (supports recursion and complex schemas).
+    * Workers pick a random collection from the provided list for every operation.
 4.  **Reporting:**
     * Outputs a real-time status report every N seconds (configurable).
     * Prints a detailed summary table at the end of the run.
@@ -323,6 +324,14 @@ To run your own workload against your own schema:
         "operation": "find",
         "filter": { "customer_name": "<string>" },
         "limit": 10
+      },
+      {
+        "database": "ecommerce",
+        "collection": "orders",
+        "operation": "updateOne",
+        "filter": { "order_uuid": "<string>" },
+        "update": { "$set": { "status": "processed" } },
+        "upsert": true
       }
     ]
     ```
@@ -383,6 +392,7 @@ Please note:
 * If there are no aggregation queries defined in queries.json, the aggregate_percent value is also ignored.
 * Aggregate operations will only generate activity if at least one query with "operation": "aggregate" is defined in your active JSON query files.
 * The maximum number of operations within a transaction is defined in the config file via `max_transaction_ops` or the env var `PERCONALOAD_MAX_TRANSACTION_OPS`. The number of operations per transaction will be randomized, with the max number being set as explained above. 
+* Multi-Collection Load: If multiple collections are defined in your collections_path, each worker will randomly select a collection for every operation. This includes operations within a transaction, allowing for cross-collection atomic updates.
 
 
 #### Concurrency & Workers
@@ -413,6 +423,7 @@ These settings affect the efficiency of individual database operations and memor
 * **`insert_cache_size`**: The buffer size for the document generator channel.
     * *Tip:* This decouples document generation from database insertion. A larger buffer ensures workers rarely wait for data generation logic.
     * *Default:* `1000`
+* **`Upserts`**: Any updateOne or updateMany operation in your query JSON files can include "upsert": true. This will cause MongoDB to create the document if no match is found for the filter.    
 
 #### Timeouts & Reliability
 Control how plgm reacts to network lag or database pressure.
