@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/config"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/logger"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/workloads"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/config"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/logger"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/workloads"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"

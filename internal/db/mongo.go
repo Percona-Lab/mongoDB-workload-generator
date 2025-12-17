@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/config"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/config"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )

@@ -12,8 +12,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/config"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/logger"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/config"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/logger"
 )
 
 const MaxLatencyBin = 10000
@@ -127,7 +127,6 @@ func (c *Collector) Track(opType string, duration time.Duration) {
 	}
 }
 
-// monitorLayout defines fixed-width columns for the real-time display
 const monitorLayout = " %-7s | %10s | %8s | %8s | %8s | %8s | %6s | %6s\n"
 
 func (c *Collector) Monitor(done <-chan struct{}, refreshRateSec int, concurrency int) {
@@ -138,8 +137,6 @@ func (c *Collector) Monitor(done <-chan struct{}, refreshRateSec int, concurrenc
 	fmt.Println(logger.GreenString("> Starting Workload..."))
 	fmt.Println()
 
-	// FIX: Print the header as a formatted bold string without using Printf placeholders
-	// to avoid "MISSING" errors caused by ANSI codes in format strings.
 	header := fmt.Sprintf(monitorLayout, "TIME", "TOTAL OPS", "SELECT", "INSERT", "UPDATE", "DELETE", "AGG", "TRANS")
 	fmt.Print(logger.BoldString(header))
 

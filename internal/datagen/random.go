@@ -7,7 +7,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/config"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/config"
 	"github.com/brianvoe/gofakeit/v6"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )

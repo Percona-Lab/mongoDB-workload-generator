@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/config"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/stats"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/workloads"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/config"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/stats"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/workloads"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -42,7 +42,6 @@ type workloadConfig struct {
 
 var InsertDocumentCache chan map[string]interface{}
 
-// Added "transaction" to operation types
 var operationTypes = []string{"find", "update", "delete", "insert", "aggregate", "transaction"}
 
 func selectOperation(percentages map[string]int, rng *rand.Rand) string {
@@ -179,7 +178,7 @@ func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.
 		// Run 2 to 5 random operations per transaction
 		numOps := rng.Intn(4) + 2
 		for i := 0; i < numOps; i++ {
-			// Select standard CRUD (Aggregates are generally not allowed in txns)
+			// Select standard CRUD
 			innerOp := selectOperation(wCfg.percentages, rng)
 			if innerOp == "aggregate" || innerOp == "transaction" {
 				innerOp = "find"

@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/config"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/db"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/logger"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/mongo"
-	"github.com/Percona-Lab/mongoDB-workload-generator/internal/stats"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/config"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/db"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/logger"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/mongo"
+	"github.com/Percona-Lab/percona-load-generator-mongodb/internal/stats"
 	"golang.org/x/term"
 )
 

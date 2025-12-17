@@ -1,4 +1,4 @@
-module github.com/Percona-Lab/mongoDB-workload-generator
+module github.com/Percona-Lab/percona-load-generator-mongodb
 
 go 1.25.4
 
