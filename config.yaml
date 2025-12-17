@@ -75,6 +75,10 @@ duration: "10s"
 # Enable transactional workload
 use_transactions: false
 
+# The maximum number of operations to group into a single transaction block.
+# plgm will pick a random number between 1 and this value for each transaction.
+max_transaction_ops: 5
+
 # --- Operation Mix ---
 # The percentage of operations allocated to each type.
 # Will be normalized automatically if the sum != 100.

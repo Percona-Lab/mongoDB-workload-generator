@@ -29,6 +29,7 @@ type AppConfig struct {
 	AggregatePercent   int    `yaml:"aggregate_percent"`
 	TransactionPercent int    `yaml:"transaction_percent"`
 	UseTransactions    bool   `yaml:"use_transactions"`
+	MaxTransactionOps  int    `yaml:"max_transaction_ops"`
 	DebugMode          bool   `yaml:"debug_mode"`
 
 	FindBatchSize         int   `yaml:"find_batch_size"`
@@ -99,6 +100,9 @@ func applyDefaults(cfg *AppConfig) {
 	if cfg.RetryBackoffMs <= 0 {
 		cfg.RetryBackoffMs = 5
 	}
+	if cfg.MaxTransactionOps <= 0 {
+		cfg.MaxTransactionOps = 3
+	}
 }
 
 func applyEnvOverrides(cfg *AppConfig) {
@@ -159,6 +163,11 @@ func applyEnvOverrides(cfg *AppConfig) {
 	if envTx := os.Getenv("PERCONALOAD_USE_TRANSACTIONS"); envTx != "" {
 		if b, err := strconv.ParseBool(envTx); err == nil {
 			cfg.UseTransactions = b
+		}
+	}
+	if v := os.Getenv("PERCONALOAD_MAX_TRANSACTION_OPS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.MaxTransactionOps = n
 		}
 	}
 	if envDocs := os.Getenv("PERCONALOAD_DOCUMENTS_COUNT"); envDocs != "" {

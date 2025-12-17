@@ -75,12 +75,12 @@ To view the full usage guide, including available flags and environment variable
 ```bash
 bin/plgm --help
 plgm: Percona Load Generator for MongoDB Clusters
-Usage: bin/plgm [flags] [config_file]
+Usage: ./bin/plgm [flags] [config_file]
 
 Examples:
-  bin/plgm                    # Run with default 'config.yaml'
-  bin/plgm my_test.yaml       # Run with specific config file
-  bin/plgm --help             # Show this help message
+  ./bin/plgm                    # Run with default 'config.yaml'
+  ./bin/plgm my_test.yaml       # Run with specific config file
+  ./bin/plgm --help             # Show this help message
 
 Flags:
   -config string
@@ -108,6 +108,7 @@ Environment Variables (Overrides):
   PERCONALOAD_SKIP_SEED               Do not seed initial data on start (true/false)
   PERCONALOAD_DEBUG_MODE              Enable verbose logic logs (true/false)
   PERCONALOAD_USE_TRANSACTIONS        Enable transactional workloads (true/false)
+  PERCONALOAD_MAX_TRANSACTION_OPS     Maximum number of operations to group into a single transaction block
 
  [Operation Ratios] (Must sum to ~100)
   PERCONALOAD_FIND_PERCENT            % of ops that are FIND
@@ -188,6 +189,7 @@ You can override any setting in `config.yaml` using environment variables. This 
 | `skip_seed` | `PERCONALOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
 | `debug_mode` | `PERCONALOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
 | `use_transactions` | `PERCONALOAD_USE_TRANSACTIONS` | Enable Transactional Workloads (`true`/`false`) | `false` |
+| `max_transaction_ops` | `PERCONALOAD_MAX_TRANSACTION_OPS` | Maximum number of operations to group into a single transaction block | `5` |
 | **Operation Ratios** | | (Must sum to ~100) | |
 | `find_percent` | `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `50` |
 | `insert_percent` | `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `20` |
@@ -232,6 +234,59 @@ When executed, plgm performs the following steps:
 ### Sample Output
 
 ![plgm](./plgm.gif)
+
+### Interpreting the Output
+
+To show how the Ops/Sec metrics are represented and what they signify, here is a sample of the real-time monitor output and a final summary. This data is modeled after the flights workload used when default_workload is true.
+
+#### Real-Time Monitor Sample
+While running a workload, plgm prints a row every second (based on `status_refresh_rate_sec`).
+
+```bash
+> Starting Workload...
+
+ TIME    | TOTAL OPS  | SELECT   | INSERT   | UPDATE   | DELETE   | AGG    | TRANS
+ -------------------------------------------------------------------------------
+ 00:01   |      8,300 |    5,004 |      798 |    1,650 |      848 |      0 |      0
+ 00:02   |      8,048 |    4,736 |      773 |    1,694 |      845 |      0 |      0
+ 00:03   |      8,168 |    4,728 |      824 |    1,737 |      879 |      0 |      0
+```
+What this represents:
+
+* TIME: The elapsed time since the workload started (MM:SS).
+* TOTAL OPS: The combined number of all operations executed across all workers in that specific 1-second interval.
+* SELECT/INSERT/UPDATE/DELETE/AGG: The raw count of each specific operation type completed in that second.
+* TRANS: The number of successful transaction blocks completed in that second (reusing the CRUD operations above internally).
+
+#### Final Summary and Latency Sample
+At the end of the run, plgm calculates the overall averages and the latency distribution.
+
+```bash
+> Workload Finished.
+
+  SUMMARY
+  --------------------------------------------------
+  Runtime:    10.00s
+  Total Ops:  81,746
+  Avg Rate:   8,174 ops/sec
+
+  LATENCY DISTRIBUTION (ms)
+  --------------------------------------------------
+  TYPE             AVG          MIN          MAX          P95          P99
+  ----             ---          ---          ---          ---          ---
+  SELECT       1.24 ms      0.45 ms     15.20 ms      4.00 ms      9.00 ms
+  INSERT      12.11 ms      4.10 ms     85.00 ms     66.00 ms     73.00 ms
+  UPDATE       9.71 ms      3.20 ms     78.40 ms     65.00 ms     71.00 ms
+  DELETE       9.60 ms      3.05 ms     76.20 ms     65.00 ms     72.00 ms
+  TRANS       25.40 ms     12.00 ms    145.00 ms     95.00 ms    112.00 ms
+```
+
+What this represents:
+
+* Avg Rate (Ops/Sec): The total throughput of the database cluster. It is calculated by dividing Total Ops by the total Runtime.
+* AVG Latency: The average time (in milliseconds) it took the MongoDB driver to receive a response for that operation.
+* P95/P99 (Percentiles): These are the most critical metrics for performance tuning. P99 represents the "worst-case" scenario for 99% of your users. For example, if P99 SELECT is 9.00ms, it means 99% of your flight searches completed in under 9ms, while 1% took longer.
+* TRANS Latency: This will typically be higher than individual operations because a single transaction block contains 1 to X grouped operations, where X is defined in the config file via `max_transaction_ops` or the env var `PERCONALOAD_MAX_TRANSACTION_OPS`.
 
 ---
 
@@ -327,6 +382,8 @@ Please note:
 * If `use_transactions: false`, the transaction_percent value is ignored.
 * If there are no aggregation queries defined in queries.json, the aggregate_percent value is also ignored.
 * Aggregate operations will only generate activity if at least one query with "operation": "aggregate" is defined in your active JSON query files.
+* The maximum number of operations within a transaction is defined in the config file via `max_transaction_ops` or the env var `PERCONALOAD_MAX_TRANSACTION_OPS`. The number of operations per transaction will be randomized, with the max number being set as explained above. 
+
 
 #### Concurrency & Workers
 * **`concurrency`**: Controls the number of "Active Workers" continuously executing operations against the database.

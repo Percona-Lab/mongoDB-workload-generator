@@ -175,8 +175,8 @@ func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.
 	start := time.Now()
 
 	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (interface{}, error) {
-		// Run 2 to 5 random operations per transaction
-		numOps := rng.Intn(4) + 2
+		// generates a random number between 1 and MaxTransactionOps, this controls the number of random operations per transaction
+		numOps := rng.Intn(wCfg.appConfig.MaxTransactionOps) + 1
 		for i := 0; i < numOps; i++ {
 			// Select standard CRUD
 			innerOp := selectOperation(wCfg.percentages, rng)
