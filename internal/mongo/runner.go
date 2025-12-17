@@ -16,7 +16,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-// queryTask holds the information needed for a worker to run a single query.
 type queryTask struct {
 	definition config.QueryDefinition
 	database   *mongo.Database
@@ -43,7 +42,8 @@ type workloadConfig struct {
 
 var InsertDocumentCache chan map[string]interface{}
 
-var operationTypes = []string{"find", "update", "delete", "insert", "aggregate"}
+// Added "transaction" to operation types
+var operationTypes = []string{"find", "update", "delete", "insert", "aggregate", "transaction"}
 
 func selectOperation(percentages map[string]int, rng *rand.Rand) string {
 	if percentages == nil {
@@ -120,7 +120,6 @@ func generateFallbackQuery(ctx context.Context, db *mongo.Database, opType strin
 			Filter:     filter,
 		}, true
 	}
-	// Fallback for aggregations? Currently skipping, user should define them.
 	return config.QueryDefinition{}, false
 }
 
@@ -128,16 +127,7 @@ func selectRandomQueryByType(ctx context.Context, db *mongo.Database, opType str
 	candidates, ok := queryMap[opType]
 	if !ok || len(candidates) == 0 {
 		if opType == "find" || opType == "updateOne" || opType == "updateMany" || opType == "deleteOne" || opType == "deleteMany" {
-			if debug {
-				log.Printf("Warning: no configured queries for %s, generating fallback", opType)
-			}
 			return generateFallbackQuery(ctx, db, opType, col, rng, filterField, cfg)
-		}
-		if debug {
-			// Aggregations shouldn't fail silently if explicitly requested
-			if opType == "aggregate" {
-				log.Printf("Warning: aggregation requested but no queries defined")
-			}
 		}
 		return config.QueryDefinition{}, false
 	}
@@ -174,191 +164,76 @@ func insertDocumentProducer(ctx context.Context, col config.CollectionDefinition
 	}
 }
 
-func queryWorkerOnce(ctx context.Context, id int, tasks <-chan *queryTask, wg *sync.WaitGroup) {
-	defer wg.Done()
-	dbOpCtx := context.Background()
-
-	for task := range tasks {
-		q := task.definition
-		coll := task.database.Collection(q.Collection)
-
-		// Support Cloning and Randomizing both Filters (Find) and Pipelines (Agg)
-		var filter map[string]interface{}
-		var pipeline []interface{}
-
-		if q.Operation == "aggregate" {
-			// Deep clone the pipeline slice
-			if cloned, ok := deepClone(q.Pipeline).([]interface{}); ok {
-				pipeline = cloned
-				processRecursive(pipeline, task.rng)
-			}
-		} else {
-			// Deep clone the filter map
-			filter = cloneMap(q.Filter)
-			processRecursive(filter, task.rng)
-		}
-
-		switch q.Operation {
-		case "find":
-			cursor, err := coll.Find(dbOpCtx, filter)
-			if err != nil {
-				log.Printf("[Worker %d] Find error: %v", id, err)
-				continue
-			}
-			for cursor.Next(dbOpCtx) {
-				var m map[string]interface{}
-				_ = cursor.Decode(&m)
-			}
-			cursor.Close(dbOpCtx)
-		case "aggregate":
-			// Execute Aggregation
-			cursor, err := coll.Aggregate(dbOpCtx, pipeline)
-			if err != nil {
-				log.Printf("[Worker %d] Aggregate error: %v", id, err)
-				continue
-			}
-			// Iterate to ensure DB actually does the work
-			for cursor.Next(dbOpCtx) {
-				var m map[string]interface{}
-				_ = cursor.Decode(&m)
-			}
-			cursor.Close(dbOpCtx)
-
-		case "updateOne":
-			if _, err := coll.UpdateOne(dbOpCtx, filter, q.Update); err != nil {
-				log.Printf("[Worker %d] UpdateOne error: %v", id, err)
-			}
-		case "updateMany":
-			if _, err := coll.UpdateMany(dbOpCtx, filter, q.Update); err != nil {
-				log.Printf("[Worker %d] UpdateMany error: %v", id, err)
-			}
-		case "deleteOne":
-			if _, err := coll.DeleteOne(dbOpCtx, filter); err != nil {
-				log.Printf("[Worker %d] DeleteOne error: %v", id, err)
-			}
-		case "deleteMany":
-			if _, err := coll.DeleteMany(dbOpCtx, filter); err != nil {
-				log.Printf("[Worker %d] DeleteMany error: %v", id, err)
-			}
-		default:
-			log.Printf("[Worker %d] Unknown operation %s", id, q.Operation)
-		}
-	}
-}
-
-func RunWorkload(ctx context.Context, db *mongo.Database, collections []config.CollectionDefinition, queries []config.QueryDefinition, cfg *config.AppConfig) error {
-	duration, err := time.ParseDuration(cfg.Duration)
+func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.Rand) {
+	session, err := wCfg.database.Client().StartSession()
 	if err != nil {
-		return err
+		log.Printf("[Worker %d] Failed to start session: %v", id, err)
+		return
 	}
-
-	collector := stats.NewCollector()
-
-	if duration <= 0 {
-		return runAllQueriesOnce(ctx, db, queries, cfg.DebugMode)
-	}
-
-	findBatch := int32(cfg.FindBatchSize)
-	if findBatch <= 0 {
-		findBatch = 10
-	}
-	findLimit := int64(cfg.FindLimit)
-	if findLimit <= 0 {
-		findLimit = 10
-	}
-
-	qMap := make(map[string][]config.QueryDefinition)
-	for _, q := range queries {
-		qMap[q.Operation] = append(qMap[q.Operation], q)
-	}
-
-	cachedFilterField := getPrimaryFilterField(ctx, db, collections[0])
-
-	wCfg := workloadConfig{
-		database:    db,
-		appConfig:   cfg,
-		concurrency: cfg.Concurrency,
-		duration:    duration,
-		collections: collections,
-		queryMap:    qMap,
-		percentages: map[string]int{
-			"find":      cfg.FindPercent,
-			"update":    cfg.UpdatePercent,
-			"delete":    cfg.DeletePercent,
-			"insert":    cfg.InsertPercent,
-			"aggregate": cfg.AggregatePercent,
-		},
-		debug:              cfg.DebugMode,
-		findBatchSize:      findBatch,
-		findLimit:          findLimit,
-		maxInsertCache:     cfg.InsertCacheSize,
-		primaryFilterField: cachedFilterField,
-		collector:          collector,
-	}
-
-	return runContinuousWorkload(ctx, wCfg)
-}
-
-func runAllQueriesOnce(ctx context.Context, db *mongo.Database, queries []config.QueryDefinition, debug bool) error {
-	if len(queries) == 0 {
-		return nil
-	}
-	tasks := make(chan *queryTask, len(queries))
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go queryWorkerOnce(ctx, 1, tasks, &wg)
-
-	for i, q := range queries {
-		if q.Operation == "insert" {
-			if debug {
-				log.Printf("Skipping insert in fixed run")
-			}
-			continue
-		}
-		tasks <- &queryTask{
-			definition: q,
-			database:   db,
-			runID:      int64(i + 1),
-			debug:      debug,
-			rng:        rand.New(rand.NewSource(time.Now().UnixNano())),
-		}
-	}
-	close(tasks)
-	wg.Wait()
-	return nil
-}
-
-func runContinuousWorkload(ctx context.Context, wCfg workloadConfig) error {
-	InsertDocumentCache = make(chan map[string]interface{}, wCfg.maxInsertCache)
-
-	workloadCtx, cancel := context.WithTimeout(ctx, wCfg.duration)
-	defer cancel()
+	defer session.EndSession(ctx)
 
 	mainCol := wCfg.collections[0]
-	producerCtx, producerCancel := context.WithCancel(workloadCtx)
-	defer producerCancel()
+	start := time.Now()
 
-	go insertDocumentProducer(producerCtx, mainCol, wCfg.maxInsertCache, wCfg.appConfig)
+	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (interface{}, error) {
+		// Run 2 to 5 random operations per transaction
+		numOps := rng.Intn(4) + 2
+		for i := 0; i < numOps; i++ {
+			// Select standard CRUD (Aggregates are generally not allowed in txns)
+			innerOp := selectOperation(wCfg.percentages, rng)
+			if innerOp == "aggregate" || innerOp == "transaction" {
+				innerOp = "find"
+			}
 
-	monitorDone := make(chan struct{})
-	go func() {
-		wCfg.collector.Monitor(monitorDone, wCfg.appConfig.StatusRefreshRateSec, wCfg.concurrency)
-	}()
+			var q config.QueryDefinition
+			var run bool
 
-	var wg sync.WaitGroup
-	for i := 1; i <= wCfg.concurrency; i++ {
-		wg.Add(1)
-		rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(i)))
-		go independentWorker(workloadCtx, i, &wg, wCfg, rng)
+			if innerOp == "insert" {
+				q = generateInsertQuery(mainCol, rng, wCfg.appConfig)
+				run = true
+			} else {
+				q, run = selectRandomQueryByType(sessCtx, wCfg.database, innerOp, wCfg.queryMap, mainCol, wCfg.debug, rng, wCfg.primaryFilterField, wCfg.appConfig)
+			}
+
+			if !run {
+				continue
+			}
+
+			coll := wCfg.database.Collection(q.Collection)
+			filter := cloneMap(q.Filter)
+			processRecursive(filter, rng)
+
+			switch q.Operation {
+			case "find":
+				cursor, err := coll.Find(sessCtx, filter, options.Find().SetLimit(1))
+				if err == nil {
+					for cursor.Next(sessCtx) {
+					}
+					_ = cursor.Close(sessCtx)
+				}
+			case "updateOne", "updateMany":
+				_, err = coll.UpdateOne(sessCtx, filter, q.Update)
+			case "deleteOne", "deleteMany":
+				_, err = coll.DeleteOne(sessCtx, filter)
+			case "insert":
+				_, err = coll.InsertOne(sessCtx, q.Filter)
+			}
+
+			if err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
+
+	if err != nil {
+		if wCfg.debug {
+			log.Printf("[Worker %d] Transaction aborted: %v", id, err)
+		}
+		return
 	}
 
-	<-workloadCtx.Done()
-	wg.Wait()
-	close(monitorDone)
-
-	wCfg.collector.PrintFinalSummary(wCfg.duration)
-
-	return nil
+	wCfg.collector.Track("transaction", time.Since(start))
 }
 
 func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg workloadConfig, rng *rand.Rand) {
@@ -374,6 +249,13 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 		}
 
 		opType := selectOperation(wCfg.percentages, rng)
+
+		// Handle Transaction Block
+		if opType == "transaction" {
+			runTransaction(ctx, id, wCfg, rng)
+			continue
+		}
+
 		var q config.QueryDefinition
 		var run bool
 
@@ -429,8 +311,6 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 				for cursor.Next(dbOpCtx) {
 				}
 				_ = cursor.Close(dbOpCtx)
-			} else {
-				log.Printf("[Worker %d] Find error: %v", id, err)
 			}
 		case "aggregate":
 			cursor, err := coll.Aggregate(dbOpCtx, pipeline)
@@ -438,37 +318,19 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 				for cursor.Next(dbOpCtx) {
 				}
 				_ = cursor.Close(dbOpCtx)
-			} else {
-				log.Printf("[Worker %d] Aggregate error: %v", id, err)
 			}
-		case "updateOne":
-			if _, err := coll.UpdateOne(dbOpCtx, filter, q.Update); err != nil {
-				log.Printf("[Worker %d] UpdateOne error: %v", id, err)
-			}
-		case "updateMany":
-			if _, err := coll.UpdateMany(dbOpCtx, filter, q.Update); err != nil {
-				log.Printf("[Worker %d] UpdateMany error: %v", id, err)
-			}
-		case "deleteOne":
-			if _, err := coll.DeleteOne(dbOpCtx, filter); err != nil {
-				log.Printf("[Worker %d] DeleteOne error: %v", id, err)
-			}
-		case "deleteMany":
-			if _, err := coll.DeleteMany(dbOpCtx, filter); err != nil {
-				log.Printf("[Worker %d] DeleteMany error: %v", id, err)
-			}
+		case "updateOne", "updateMany":
+			coll.UpdateOne(dbOpCtx, filter, q.Update)
+		case "deleteOne", "deleteMany":
+			coll.DeleteOne(dbOpCtx, filter)
 		case "insert":
-			if _, err := coll.InsertOne(dbOpCtx, q.Filter); err != nil {
-				log.Printf("[Worker %d] InsertOne error: %v", id, err)
-			}
+			coll.InsertOne(dbOpCtx, q.Filter)
 		}
 
-		elapsed := time.Since(start)
-		wCfg.collector.Track(q.Operation, elapsed)
+		wCfg.collector.Track(q.Operation, time.Since(start))
 	}
 }
 
-// deepCloneRecursively copies maps, slices, and primitives to ensure thread safety
 func deepClone(v interface{}) interface{} {
 	switch t := v.(type) {
 	case map[string]interface{}:
@@ -495,7 +357,6 @@ func cloneMap(m map[string]interface{}) map[string]interface{} {
 	return nil
 }
 
-// processRecursive traverses both Maps and Slices to find and replace random placeholders
 func processRecursive(v interface{}, rng *rand.Rand) {
 	switch t := v.(type) {
 	case map[string]interface{}:
@@ -513,6 +374,131 @@ func processRecursive(v interface{}, rng *rand.Rand) {
 	case []interface{}:
 		for _, val := range t {
 			processRecursive(val, rng)
+		}
+	}
+}
+
+func RunWorkload(ctx context.Context, db *mongo.Database, collections []config.CollectionDefinition, queries []config.QueryDefinition, cfg *config.AppConfig) error {
+	duration, err := time.ParseDuration(cfg.Duration)
+	if err != nil {
+		return err
+	}
+
+	collector := stats.NewCollector()
+	if duration <= 0 {
+		return runAllQueriesOnce(ctx, db, queries, cfg.DebugMode)
+	}
+
+	findBatch := int32(cfg.FindBatchSize)
+	if findBatch <= 0 {
+		findBatch = 10
+	}
+	findLimit := int64(cfg.FindLimit)
+	if findLimit <= 0 {
+		findLimit = 10
+	}
+
+	qMap := make(map[string][]config.QueryDefinition)
+	for _, q := range queries {
+		qMap[q.Operation] = append(qMap[q.Operation], q)
+	}
+
+	cachedFilterField := getPrimaryFilterField(ctx, db, collections[0])
+
+	wCfg := workloadConfig{
+		database:    db,
+		appConfig:   cfg,
+		concurrency: cfg.Concurrency,
+		duration:    duration,
+		collections: collections,
+		queryMap:    qMap,
+		percentages: map[string]int{
+			"find":        cfg.FindPercent,
+			"update":      cfg.UpdatePercent,
+			"delete":      cfg.DeletePercent,
+			"insert":      cfg.InsertPercent,
+			"aggregate":   cfg.AggregatePercent,
+			"transaction": cfg.TransactionPercent,
+		},
+		debug:              cfg.DebugMode,
+		findBatchSize:      findBatch,
+		findLimit:          findLimit,
+		maxInsertCache:     cfg.InsertCacheSize,
+		primaryFilterField: cachedFilterField,
+		collector:          collector,
+	}
+
+	return runContinuousWorkload(ctx, wCfg)
+}
+
+func runContinuousWorkload(ctx context.Context, wCfg workloadConfig) error {
+	InsertDocumentCache = make(chan map[string]interface{}, wCfg.maxInsertCache)
+	workloadCtx, cancel := context.WithTimeout(ctx, wCfg.duration)
+	defer cancel()
+
+	mainCol := wCfg.collections[0]
+	go insertDocumentProducer(workloadCtx, mainCol, wCfg.maxInsertCache, wCfg.appConfig)
+
+	monitorDone := make(chan struct{})
+	go func() {
+		wCfg.collector.Monitor(monitorDone, wCfg.appConfig.StatusRefreshRateSec, wCfg.concurrency)
+	}()
+
+	var wg sync.WaitGroup
+	for i := 1; i <= wCfg.concurrency; i++ {
+		wg.Add(1)
+		rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(i)))
+		go independentWorker(workloadCtx, i, &wg, wCfg, rng)
+	}
+
+	<-workloadCtx.Done()
+	wg.Wait()
+	close(monitorDone)
+	wCfg.collector.PrintFinalSummary(wCfg.duration)
+	return nil
+}
+
+func runAllQueriesOnce(ctx context.Context, db *mongo.Database, queries []config.QueryDefinition, debug bool) error {
+	if len(queries) == 0 {
+		return nil
+	}
+	tasks := make(chan *queryTask, len(queries))
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go queryWorkerOnce(ctx, 1, tasks, &wg)
+	for i, q := range queries {
+		if q.Operation == "insert" {
+			continue
+		}
+		tasks <- &queryTask{
+			definition: q,
+			database:   db,
+			runID:      int64(i + 1),
+			debug:      debug,
+			rng:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		}
+	}
+	close(tasks)
+	wg.Wait()
+	return nil
+}
+
+func queryWorkerOnce(ctx context.Context, id int, tasks <-chan *queryTask, wg *sync.WaitGroup) {
+	defer wg.Done()
+	dbOpCtx := context.Background()
+	for task := range tasks {
+		q := task.definition
+		coll := task.database.Collection(q.Collection)
+		filter := cloneMap(q.Filter)
+		processRecursive(filter, task.rng)
+		switch q.Operation {
+		case "find":
+			cursor, _ := coll.Find(dbOpCtx, filter)
+			if cursor != nil {
+				cursor.Close(dbOpCtx)
+			}
+		case "updateOne":
+			coll.UpdateOne(dbOpCtx, filter, q.Update)
 		}
 	}
 }

@@ -9,12 +9,9 @@ import (
 )
 
 // AppConfig holds the application's runtime configuration.
-// Struct tags: e.g.: when reading from YAML, the field named uri maps to URI in this struct
 type AppConfig struct {
 	URI string `yaml:"uri"`
 	// DefaultWorkload controls both file loading and generator logic.
-	// True: Load only "default.json" and use custom workload logic (e.g. flights).
-	// False: Load user files (excluding default.json) and use generic generator.
 	DefaultWorkload bool `yaml:"default_workload"`
 
 	CollectionsPath string `yaml:"collections_path"`
@@ -24,13 +21,15 @@ type AppConfig struct {
 	DocumentsCount  int    `yaml:"documents_count"`
 	Concurrency     int    `yaml:"concurrency"`
 
-	Duration         string `yaml:"duration"`
-	FindPercent      int    `yaml:"find_percent"`
-	UpdatePercent    int    `yaml:"update_percent"`
-	DeletePercent    int    `yaml:"delete_percent"`
-	InsertPercent    int    `yaml:"insert_percent"`
-	AggregatePercent int    `yaml:"aggregate_percent"`
-	DebugMode        bool   `yaml:"debug_mode"`
+	Duration           string `yaml:"duration"`
+	FindPercent        int    `yaml:"find_percent"`
+	UpdatePercent      int    `yaml:"update_percent"`
+	DeletePercent      int    `yaml:"delete_percent"`
+	InsertPercent      int    `yaml:"insert_percent"`
+	AggregatePercent   int    `yaml:"aggregate_percent"`
+	TransactionPercent int    `yaml:"transaction_percent"`
+	UseTransactions    bool   `yaml:"use_transactions"`
+	DebugMode          bool   `yaml:"debug_mode"`
 
 	FindBatchSize         int   `yaml:"find_batch_size"`
 	FindLimit             int64 `yaml:"find_limit"`
@@ -41,19 +40,14 @@ type AppConfig struct {
 	RetryAttempts         int   `yaml:"retry_attempts"`
 	RetryBackoffMs        int   `yaml:"retry_backoff_ms"`
 
-	// Typed struct view
-	ConnectionParams ConnectionParams `yaml:"connection_params"`
-
-	// Raw/dynamic view
-	CustomParamsMap map[string]interface{} `yaml:"custom_params"`
-
-	// Enable debugging
-	Debug bool `yaml:"debug"`
+	ConnectionParams ConnectionParams       `yaml:"connection_params"`
+	CustomParamsMap  map[string]interface{} `yaml:"custom_params"`
+	Debug            bool                   `yaml:"debug"`
 }
 
 type ConnectionParams struct {
 	Username               string `yaml:"username"`
-	Password               string `yaml:"-"` // Never load from YAML
+	Password               string `yaml:"-"`
 	AuthSource             string `yaml:"auth_source"`
 	DirectConnection       bool   `yaml:"direct_connection"`
 	ConnectionTimeout      int    `yaml:"connection_timeout"`
@@ -65,7 +59,6 @@ type ConnectionParams struct {
 	ReadPreference         string `yaml:"read_preference"`
 }
 
-// LoadAppConfig reads the configuration from the specified path and applies environment variable overrides.
 func LoadAppConfig(path string) (*AppConfig, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -106,7 +99,6 @@ func applyDefaults(cfg *AppConfig) {
 	if cfg.RetryBackoffMs <= 0 {
 		cfg.RetryBackoffMs = 5
 	}
-
 }
 
 func applyEnvOverrides(cfg *AppConfig) {
@@ -134,7 +126,6 @@ func applyEnvOverrides(cfg *AppConfig) {
 			cfg.ConnectionParams.DirectConnection = b
 		}
 	}
-	// Check if the environment variable is explicitly defined (even if empty)
 	if v, exists := os.LookupEnv("PERCONALOAD_REPLICA_SET"); exists {
 		cfg.ConnectionParams.ReplicaSetName = v
 	}
@@ -142,14 +133,7 @@ func applyEnvOverrides(cfg *AppConfig) {
 		cfg.ConnectionParams.ReadPreference = v
 	}
 
-	// -------------------------------------------------------------------------
-	// Custom Workload Logic:
-	// If the user provides custom paths via environment variables, we infer
-	// that they want to run a custom workload, so we force DefaultWorkload to false.
-	// This overrides any previous setting (YAML or PERCONALOAD_DEFAULT_WORKLOAD).
-	// -------------------------------------------------------------------------
 	customWorkloadEnv := false
-
 	if envCollectionsPath := os.Getenv("PERCONALOAD_COLLECTIONS_PATH"); envCollectionsPath != "" {
 		cfg.CollectionsPath = envCollectionsPath
 		customWorkloadEnv = true
@@ -158,20 +142,23 @@ func applyEnvOverrides(cfg *AppConfig) {
 		cfg.QueriesPath = envQueriesPath
 		customWorkloadEnv = true
 	}
-
 	if customWorkloadEnv {
 		cfg.DefaultWorkload = false
 	}
-	// -------------------------------------------------------------------------
 
 	if envDrop := os.Getenv("PERCONALOAD_DROP_COLLECTIONS"); envDrop != "" {
 		if b, err := strconv.ParseBool(envDrop); err == nil {
 			cfg.DropCollections = b
 		}
 	}
-	if envDrop := os.Getenv("PERCONALOAD_SKIP_SEED"); envDrop != "" {
-		if b, err := strconv.ParseBool(envDrop); err == nil {
+	if envSkip := os.Getenv("PERCONALOAD_SKIP_SEED"); envSkip != "" {
+		if b, err := strconv.ParseBool(envSkip); err == nil {
 			cfg.SkipSeed = b
+		}
+	}
+	if envTx := os.Getenv("PERCONALOAD_USE_TRANSACTIONS"); envTx != "" {
+		if b, err := strconv.ParseBool(envTx); err == nil {
+			cfg.UseTransactions = b
 		}
 	}
 	if envDocs := os.Getenv("PERCONALOAD_DOCUMENTS_COUNT"); envDocs != "" {
@@ -212,7 +199,12 @@ func applyEnvOverrides(cfg *AppConfig) {
 			cfg.AggregatePercent = n
 		}
 	}
-	// runtime optimization
+	if p := os.Getenv("PERCONALOAD_TRANSACTION_PERCENT"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
+			cfg.TransactionPercent = n
+		}
+	}
+
 	if v := os.Getenv("PERCONALOAD_FIND_BATCH_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.FindBatchSize = n
@@ -251,11 +243,17 @@ func applyEnvOverrides(cfg *AppConfig) {
 }
 
 func normalizePercentages(cfg *AppConfig) {
-	total := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent
+	// If transactions are disabled, ignore their percentage entirely
+	if !cfg.UseTransactions {
+		cfg.TransactionPercent = 0
+	}
+
+	total := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent
 	if total <= 0 {
 		cfg.FindPercent = 100
 		return
 	}
+
 	if total != 100 {
 		factor := 100.0 / float64(total)
 		cfg.FindPercent = int(float64(cfg.FindPercent) * factor)
@@ -263,8 +261,9 @@ func normalizePercentages(cfg *AppConfig) {
 		cfg.DeletePercent = int(float64(cfg.DeletePercent) * factor)
 		cfg.InsertPercent = int(float64(cfg.InsertPercent) * factor)
 		cfg.AggregatePercent = int(float64(cfg.AggregatePercent) * factor)
+		cfg.TransactionPercent = int(float64(cfg.TransactionPercent) * factor)
 
-		finalTotal := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent
+		finalTotal := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent
 		if finalTotal != 100 {
 			cfg.FindPercent += (100 - finalTotal)
 		}

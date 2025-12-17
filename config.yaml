@@ -72,14 +72,18 @@ concurrency: 4
 # Set to "0" to run the queries exactly once and exit.
 duration: "10s"
 
+# Enable transactional workload
+use_transactions: false
+
 # --- Operation Mix ---
 # The percentage of operations allocated to each type.
 # Will be normalized automatically if the sum != 100.
-find_percent: 55
+find_percent: 50
 update_percent: 20
 delete_percent: 10
 insert_percent: 10
 aggregate_percent: 5
+transaction_percent: 5
 
 # Enable application-level debug
 debug_mode: false

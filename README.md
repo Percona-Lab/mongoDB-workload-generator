@@ -184,12 +184,14 @@ You can override any setting in `config.yaml` using environment variables. This 
 | `drop_collections` | `PERCONALOAD_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
 | `skip_seed` | `PERCONALOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
 | `debug_mode` | `PERCONALOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
+| `use_transactions` | `PERCONALOAD_USE_TRANSACTIONS` | Enable Transactional Workloads (`true`/`false`) | `false` |
 | **Operation Ratios** | | (Must sum to ~100) | |
 | `find_percent` | `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `55` |
 | `insert_percent` | `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `20` |
 | `update_percent` | `PERCONALOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
 | `delete_percent` | `PERCONALOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
 | `aggregate_percent` | `PERCONALOAD_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
+| `transaction_percent` | `PERCONALOAD_TRANSACTION_PERCENT` | Percentage of Transactional operations | `5` |
 | **Performance Optimization** | | | |
 | `find_batch_size` | `PERCONALOAD_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
 | `find_limit` | `PERCONALOAD_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
@@ -302,6 +304,26 @@ export GOMAXPROCS=2
 ### 2. Configuration Optimization (`config.yaml`)
 
 You can fine-tune plgm internal behavior by adjusting the parameters in `config.yaml`.
+
+#### Workload Type
+By default, the tool comes preconfigured with the following workload distribution:
+
+| Operation |	Percentage |
+| :--- | :--- | 
+| Find	| 50% | 
+| Update	| 20% | 
+| Delete	| 10% | 
+| Insert	| 10% | 
+| Aggregate	| 5% | 
+| Transaction	| 5% | 
+
+You can modify any of the values above to run different types of workloads.
+
+Please note:
+
+* If `use_transactions: false`, the transaction_percent value is ignored.
+* If there are no aggregation queries defined in queries.json, the aggregate_percent value is also ignored.
+* Aggregate operations will only generate activity if at least one query with "operation": "aggregate" is defined in your active JSON query files.
 
 #### Concurrency & Workers
 * **`concurrency`**: Controls the number of "Active Workers" continuously executing operations against the database.
