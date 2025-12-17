@@ -1,16 +1,11 @@
 # Workload Generator for MongoDB
 
-<table>
-  <tr>
-    <td style="background-color:#fff3cd; padding:12px; border-left:6px solid #ffcc00; color:#b00000;">
-      <strong>⚠️ Note:</strong><br>
-      This application has evolved significantly, transitioning from a Python-based implementation
-      to a full-fledged Go application. The Python branch is retained for historical reference only
-      and is no longer maintained. Please migrate to the Go version available in the main branch.
-    </td>
-  </tr>
-</table>
+> [!WARNING]
+> This application has evolved significantly, transitioning from a Python-based implementation
+> to a full-fledged Go application. The Python branch is retained for historical reference only
+> and is no longer maintained. Please migrate to the Go version available in the main branch.
 
+---
 
 Workload Generator for MongoDB  was designed to help MongoDB users effortlessly generate data and simulate workloads for both sharded and non-sharded clusters. The generated workloads include standard CRUD operations, reflecting real-world usage patterns of a MongoDB environment.
 
