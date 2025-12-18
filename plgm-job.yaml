@@ -14,19 +14,19 @@ spec:
         env:
         # Override the URI in config.yaml with the internal K8s DNS
         # This talks directly to the pod
-        - name: PERCONALOAD_URI
+        - name: PLGM_URI
           value: "mongodb://test-rs-0.test-rs.lab.svc.cluster.local:27017,test-rs-1.test-rs.lab.svc.cluster.local:27017,test-rs-2.test-rs.lab.svc.cluster.local:27017/?authSource=admin"
-        - name: PERCONALOAD_USERNAME
+        - name: PLGM_USERNAME
           value: "root"
-        - name: PERCONALOAD_PASSWORD
+        - name: PLGM_PASSWORD
           value: "percona"
-        - name: PERCONALOAD_REPLICA_SET
+        - name: PLGM_REPLICA_SET
           value: "rs"
-        - name: PERCONALOAD_READ_PREFERENCE
+        - name: PLGM_READ_PREFERENCE
           value: "nearest"  
-        - name: PERCONALOAD_CONCURRENCY
+        - name: PLGM_CONCURRENCY
           value: "40"
-        - name: PERCONALOAD_DIRECT_CONNECTION
+        - name: PLGM_DIRECT_CONNECTION
           value: "false"  
       restartPolicy: Never
   backoffLimit: 0

@@ -3,15 +3,15 @@
 # ==============================================================================
 
 # The primary connection string for the MongoDB target.
-# Can be overridden via environment variable: PERCONALOAD_URI
+# Can be overridden via environment variable: PLGM_URI
 uri: "mongodb://localhost:31001"
 
 # --- Connection Tuning ---
 # Standard driver parameters to control behavior and resource usage.
 connection_params:
   # Credentials (Optional)
-  # You can set the username here or via env PERCONALOAD_USERNAME.
-  # Password is NOT set here. Use PERCONALOAD_PASSWORD. If not set, the interactive prompt will ask for it
+  # You can set the username here or via env PLGM_USERNAME.
+  # Password is NOT set here. Use PLGM_PASSWORD. If not set, the interactive prompt will ask for it
   username: "root"
   auth_source: admin             # Database to authenticate against
   direct_connection: true        # Connect directly to the host (bypass topology discovery if single node)
