@@ -34,7 +34,7 @@ A Kubernetes Job is the ideal choice for benchmarking as it runs to completion a
 
 ### Create `plgm-job.yaml`
 
-We have provided a comprehensive sample manifest. It uses a Seed List for the URI (listing all three pods) to ensure high availability and utilizes the `PERCONALOAD_REPLICA_SET` variable among others to configure our options. This file is provided as an example; please edit [plgm-job.yaml](./plgm-job.yaml) to suit your specific requirements.
+We have provided a comprehensive sample manifest. It uses a Seed List for the URI (listing all three pods) to ensure high availability and utilizes the `PLGM_REPLICA_SET` variable among others to configure our options. This file is provided as an example; please edit [plgm-job.yaml](./plgm-job.yaml) to suit your specific requirements.
 
 ### Execute the Benchmark
 
@@ -129,15 +129,15 @@ You can override almost any setting in `config.yaml` using these Environment Var
 
 | Variable | Description |
 | :--- | :--- |
-| `PERCONALOAD_URI` | Connection String (use Internal DNS) |
-| `PERCONALOAD_CONCURRENCY` | Number of parallel worker threads |
-| `PERCONALOAD_DURATION` | Test duration (e.g., `60s`, `5m`) |
-| `PERCONALOAD_FIND_PERCENT` | % of operations that are Reads |
-| `PERCONALOAD_INSERT_PERCENT` | % of operations that are Inserts |
-| `PERCONALOAD_UPDATE_PERCENT` | % of operations that are Updates |
-| `PERCONALOAD_DELETE_PERCENT` | % of operations that are Deletes |
-| `PERCONALOAD_DOCUMENTS_COUNT` | Initial seed document count (if seeding) |
-| `PERCONALOAD_DEFAULT_WORKLOAD`| Set to `true` (use built-in flights) or `false` (custom) |
+| `PLGM_URI` | Connection String (use Internal DNS) |
+| `PLGM_CONCURRENCY` | Number of parallel worker threads |
+| `PLGM_DURATION` | Test duration (e.g., `60s`, `5m`) |
+| `PLGM_FIND_PERCENT` | % of operations that are Reads |
+| `PLGM_INSERT_PERCENT` | % of operations that are Inserts |
+| `PLGM_UPDATE_PERCENT` | % of operations that are Updates |
+| `PLGM_DELETE_PERCENT` | % of operations that are Deletes |
+| `PLGM_DOCUMENTS_COUNT` | Initial seed document count (if seeding) |
+| `PLGM_DEFAULT_WORKLOAD`| Set to `true` (use built-in flights) or `false` (custom) |
 
 ## 4. Troubleshooting Performance
 
@@ -157,7 +157,7 @@ You can override almost any setting in `config.yaml` using these Environment Var
     kubectl top pod plgm-xxxxx
     ```
     * **CPU Maxed?** The generator is CPU-bound. Increase `resources.limits.cpu` in the YAML or lower `GOMAXPROCS`.
-    * **CPU Low?** It might be network latency waiting for the DB. Increase `PERCONALOAD_CONCURRENCY` to create more parallel requests.
+    * **CPU Low?** It might be network latency waiting for the DB. Increase `PLGM_CONCURRENCY` to create more parallel requests.
 
 3.  **Read Preference:**
     If your Primary node is at 100% but Secondaries are idle, ensure your URI includes `readPreference=nearest` or `secondaryPreferred`.

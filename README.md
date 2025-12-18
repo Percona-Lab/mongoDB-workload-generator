@@ -90,44 +90,44 @@ Flags:
 
 Environment Variables (Overrides):
  [Connection]
-  PERCONALOAD_URI                     Connection URI
-  PERCONALOAD_USERNAME                Database User
-  PERCONALOAD_PASSWORD                Database Password (Recommended: Use Prompt)
-  PERCONALOAD_DIRECT_CONNECTION       Force direct connection (true/false)
-  PERCONALOAD_REPLICA_SET             Replica Set name
-  PERCONALOAD_READ_PREFERENCE         nearest
+  PLGM_URI                     Connection URI
+  PLGM_USERNAME                Database User
+  PLGM_PASSWORD                Database Password (Recommended: Use Prompt)
+  PLGM_DIRECT_CONNECTION       Force direct connection (true/false)
+  PLGM_REPLICA_SET             Replica Set name
+  PLGM_READ_PREFERENCE         nearest
 
  [Workload Core]
-  PERCONALOAD_DEFAULT_WORKLOAD        Use built-in workload (true/false)
-  PERCONALOAD_COLLECTIONS_PATH        Path to collection JSON
-  PERCONALOAD_QUERIES_PATH            Path to query JSON
-  PERCONALOAD_DURATION                Test duration (e.g. 60s, 5m)
-  PERCONALOAD_CONCURRENCY             Number of active workers
-  PERCONALOAD_DOCUMENTS_COUNT         Initial seed document count
-  PERCONALOAD_DROP_COLLECTIONS        Drop collections on start (true/false)
-  PERCONALOAD_SKIP_SEED               Do not seed initial data on start (true/false)
-  PERCONALOAD_DEBUG_MODE              Enable verbose logic logs (true/false)
-  PERCONALOAD_USE_TRANSACTIONS        Enable transactional workloads (true/false)
-  PERCONALOAD_MAX_TRANSACTION_OPS     Maximum number of operations to group into a single transaction block
+  PLGM_DEFAULT_WORKLOAD        Use built-in workload (true/false)
+  PLGM_COLLECTIONS_PATH        Path to collection JSON
+  PLGM_QUERIES_PATH            Path to query JSON
+  PLGM_DURATION                Test duration (e.g. 60s, 5m)
+  PLGM_CONCURRENCY             Number of active workers
+  PLGM_DOCUMENTS_COUNT         Initial seed document count
+  PLGM_DROP_COLLECTIONS        Drop collections on start (true/false)
+  PLGM_SKIP_SEED               Do not seed initial data on start (true/false)
+  PLGM_DEBUG_MODE              Enable verbose logic logs (true/false)
+  PLGM_USE_TRANSACTIONS        Enable transactional workloads (true/false)
+  PLGM_MAX_TRANSACTION_OPS     Maximum number of operations to group into a single transaction block
 
  [Operation Ratios] (Must sum to ~100)
-  PERCONALOAD_FIND_PERCENT            % of ops that are FIND
-  PERCONALOAD_UPDATE_PERCENT          % of ops that are UPDATE
-  PERCONALOAD_INSERT_PERCENT          % of ops that are INSERT
-  PERCONALOAD_DELETE_PERCENT          % of ops that are DELETE
-  PERCONALOAD_AGGREGATE_PERCENT       % of ops that are AGGREGATE
-  PERCONALOAD_TRANSACTION_PERCENT     % of ops that are TRANSACTIONAL
-  PERCONALOAD_BULK_INSERT_PERCENT     % of ops that are BULK INSERTS
+  PLGM_FIND_PERCENT            % of ops that are FIND
+  PLGM_UPDATE_PERCENT          % of ops that are UPDATE
+  PLGM_INSERT_PERCENT          % of ops that are INSERT
+  PLGM_DELETE_PERCENT          % of ops that are DELETE
+  PLGM_AGGREGATE_PERCENT       % of ops that are AGGREGATE
+  PLGM_TRANSACTION_PERCENT     % of ops that are TRANSACTIONAL
+  PLGM_BULK_INSERT_PERCENT     % of ops that are BULK INSERTS
 
  [Performance Optimization]
-  PERCONALOAD_FIND_BATCH_SIZE         Docs returned per cursor batch
-  PERCONALOAD_INSERT_BATCH_SIZE       Number of docs in batch bulk insert
-  PERCONALOAD_FIND_LIMIT              Max docs per Find query
-  PERCONALOAD_INSERT_CACHE_SIZE       Generator buffer size
-  PERCONALOAD_OP_TIMEOUT_MS           Soft timeout per DB op (ms)
-  PERCONALOAD_RETRY_ATTEMPTS          Retry attempts for failures
-  PERCONALOAD_RETRY_BACKOFF_MS        Wait time between retries (ms)
-  PERCONALOAD_STATUS_REFRESH_RATE_SEC Status report interval (sec)
+  PLGM_FIND_BATCH_SIZE         Docs returned per cursor batch
+  PLGM_INSERT_BATCH_SIZE       Number of docs in batch bulk insert
+  PLGM_FIND_LIMIT              Max docs per Find query
+  PLGM_INSERT_CACHE_SIZE       Generator buffer size
+  PLGM_OP_TIMEOUT_MS           Soft timeout per DB op (ms)
+  PLGM_RETRY_ATTEMPTS          Retry attempts for failures
+  PLGM_RETRY_BACKOFF_MS        Wait time between retries (ms)
+  PLGM_STATUS_REFRESH_RATE_SEC Status report interval (sec)
   GOMAXPROCS                          Go Runtime CPU limit
 ```
 
@@ -174,46 +174,46 @@ You can override any setting in `config.yaml` using environment variables. This 
 | Config Setting | Environment Variable | Description | Example |
 | :--- | :--- | :--- | :--- |
 | **Connection** | | | |
-| `uri` | `PERCONALOAD_URI` | Target MongoDB connection URI | `mongodb://user:pass@host:27017` |
-| `direct_connection` | `PERCONALOAD_DIRECT_CONNECTION` | Force direct connection (bypass topology discovery) | `true` |
-| `replicaset_name` | `PERCONALOAD_REPLICA_SET` | Replica Set name (required for sharded clusters/RS) | `rs0` |
-| `read_preference` | `PERCONALOAD_READ_PREFERENCE` | By default, an application directs its read operations to the primary member in a replica set. You can specify a read preference to send read operations to secondaries. | `nearest` |
-| `username` | `PERCONALOAD_USERNAME` |	Database User | `admin` |
-| ***can not be set via config*** | `PERCONALOAD_PASSWORD` |	Database Password (if not set, plgm will prompt) | `password123` |
+| `uri` | `PLGM_URI` | Target MongoDB connection URI | `mongodb://user:pass@host:27017` |
+| `direct_connection` | `PLGM_DIRECT_CONNECTION` | Force direct connection (bypass topology discovery) | `true` |
+| `replicaset_name` | `PLGM_REPLICA_SET` | Replica Set name (required for sharded clusters/RS) | `rs0` |
+| `read_preference` | `PLGM_READ_PREFERENCE` | By default, an application directs its read operations to the primary member in a replica set. You can specify a read preference to send read operations to secondaries. | `nearest` |
+| `username` | `PLGM_USERNAME` |	Database User | `admin` |
+| ***can not be set via config*** | `PLGM_PASSWORD` |	Database Password (if not set, plgm will prompt) | `password123` |
 | **Workload Control** | | | |
-| `concurrency` | `PERCONALOAD_CONCURRENCY` | Number of active worker goroutines | `50` |
-| `duration` | `PERCONALOAD_DURATION` | Test duration (Go duration string) | `5m`, `60s` |
-| `default_workload` | `PERCONALOAD_DEFAULT_WORKLOAD` | Use built-in "Flights" workload (`true`/`false`) | `false` |
-| `collections_path` | `PERCONALOAD_COLLECTIONS_PATH` | Path to custom collection JSON files (supports directories for multi-collection load) | `./schemas` |
-| `queries_path` | `PERCONALOAD_QUERIES_PATH` | Path to custom query JSON files or directory. | `./queries` |
-| `documents_count` | `PERCONALOAD_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
-| `drop_collections` | `PERCONALOAD_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
-| `skip_seed` | `PERCONALOAD_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
-| `debug_mode` | `PERCONALOAD_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
-| `use_transactions` | `PERCONALOAD_USE_TRANSACTIONS` | Enable Transactional Workloads (`true`/`false`) | `false` |
-| `max_transaction_ops` | `PERCONALOAD_MAX_TRANSACTION_OPS` | Maximum number of operations to group into a single transaction block | `5` |
+| `concurrency` | `PLGM_CONCURRENCY` | Number of active worker goroutines | `50` |
+| `duration` | `PLGM_DURATION` | Test duration (Go duration string) | `5m`, `60s` |
+| `default_workload` | `PLGM_DEFAULT_WORKLOAD` | Use built-in "Flights" workload (`true`/`false`) | `false` |
+| `collections_path` | `PLGM_COLLECTIONS_PATH` | Path to custom collection JSON files (supports directories for multi-collection load) | `./schemas` |
+| `queries_path` | `PLGM_QUERIES_PATH` | Path to custom query JSON files or directory. | `./queries` |
+| `documents_count` | `PLGM_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
+| `drop_collections` | `PLGM_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
+| `skip_seed` | `PLGM_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
+| `debug_mode` | `PLGM_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
+| `use_transactions` | `PLGM_USE_TRANSACTIONS` | Enable Transactional Workloads (`true`/`false`) | `false` |
+| `max_transaction_ops` | `PLGM_MAX_TRANSACTION_OPS` | Maximum number of operations to group into a single transaction block | `5` |
 | **Operation Ratios** | | (Must sum to ~100) | |
-| `find_percent` | `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `50` |
-| `insert_percent` | `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `10` |
-| `bulk_insert_percent ` | `PERCONALOAD_BULK_INSERT_PERCENT` | Percentage of Bulk Insert operations (this is not related to the initial seed inserts) | `10` |
-| `update_percent` | `PERCONALOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
-| `delete_percent` | `PERCONALOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
-| `aggregate_percent` | `PERCONALOAD_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
-| `transaction_percent` | `PERCONALOAD_TRANSACTION_PERCENT` | Percentage of Transactional operations | `5` |
+| `find_percent` | `PLGM_FIND_PERCENT` | Percentage of Find operations | `50` |
+| `insert_percent` | `PLGM_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `10` |
+| `bulk_insert_percent ` | `PLGM_BULK_INSERT_PERCENT` | Percentage of Bulk Insert operations (this is not related to the initial seed inserts) | `10` |
+| `update_percent` | `PLGM_UPDATE_PERCENT` | Percentage of Update operations | `10` |
+| `delete_percent` | `PLGM_DELETE_PERCENT` | Percentage of Delete operations | `10` |
+| `aggregate_percent` | `PLGM_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
+| `transaction_percent` | `PLGM_TRANSACTION_PERCENT` | Percentage of Transactional operations | `5` |
 | **Performance Optimization** | | | |
-| `find_batch_size` | `PERCONALOAD_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
-| `insert_batch_size` | `PERCONALOAD_INSERT_BATCH_SIZE` | Number of documents per insert batch | `100` |
-| `find_limit` | `PERCONALOAD_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
-| `insert_cache_size` | `PERCONALOAD_INSERT_CACHE_SIZE` | Size of the document generation buffer | `1000` |
-| `op_timeout_ms` | `PERCONALOAD_OP_TIMEOUT_MS` | Soft timeout for individual DB operations (ms) | `500` |
-| `retry_attempts` | `PERCONALOAD_RETRY_ATTEMPTS` | Number of retries for transient errors | `3` |
-| `retry_backoff_ms` | `PERCONALOAD_RETRY_BACKOFF_MS` | Wait time between retries (ms) | `10` |
-| `status_refresh_rate_sec` | `PERCONALOAD_STATUS_REFRESH_RATE_SEC` | How often to print stats to console (sec) | `5` |
+| `find_batch_size` | `PLGM_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
+| `insert_batch_size` | `PLGM_INSERT_BATCH_SIZE` | Number of documents per insert batch | `100` |
+| `find_limit` | `PLGM_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
+| `insert_cache_size` | `PLGM_INSERT_CACHE_SIZE` | Size of the document generation buffer | `1000` |
+| `op_timeout_ms` | `PLGM_OP_TIMEOUT_MS` | Soft timeout for individual DB operations (ms) | `500` |
+| `retry_attempts` | `PLGM_RETRY_ATTEMPTS` | Number of retries for transient errors | `3` |
+| `retry_backoff_ms` | `PLGM_RETRY_BACKOFF_MS` | Wait time between retries (ms) | `10` |
+| `status_refresh_rate_sec` | `PLGM_STATUS_REFRESH_RATE_SEC` | How often to print stats to console (sec) | `5` |
 
 
 **Example:**
 ```bash
-PERCONALOAD_CONCURRENCY=50 PERCONALOAD_DURATION=5m ./bin/plgm
+PLGM_CONCURRENCY=50 PLGM_DURATION=5m ./bin/plgm
 ```
 
 ---
@@ -291,7 +291,7 @@ What this represents:
 * Avg Rate (Ops/Sec): The total throughput of the database cluster. It is calculated by dividing Total Ops by the total Runtime.
 * AVG Latency: The average time (in milliseconds) it took the MongoDB driver to receive a response for that operation.
 * P95/P99 (Percentiles): These are the most critical metrics for performance tuning. P99 represents the "worst-case" scenario for 99% of your users. For example, if P99 SELECT is 9.00ms, it means 99% of your flight searches completed in under 9ms, while 1% took longer.
-* TRANS Latency: This will typically be higher than individual operations because a single transaction block contains 1 to X grouped operations, where X is defined in the config file via `max_transaction_ops` or the env var `PERCONALOAD_MAX_TRANSACTION_OPS`.
+* TRANS Latency: This will typically be higher than individual operations because a single transaction block contains 1 to X grouped operations, where X is defined in the config file via `max_transaction_ops` or the env var `PLGM_MAX_TRANSACTION_OPS`.
 
 ---
 
@@ -342,8 +342,8 @@ To run your own workload against your own schema:
 
 3.  **Run:**
     ```bash
-    export PERCONALOAD_COLLECTIONS_PATH=./my_collection.json
-    export PERCONALOAD_QUERIES_PATH=./my_queries.json
+    export PLGM_COLLECTIONS_PATH=./my_collection.json
+    export PLGM_QUERIES_PATH=./my_queries.json
     ./bin/plgm
     ```
 
@@ -396,7 +396,7 @@ Please note:
 * If `use_transactions: false`, the transaction_percent value is ignored.
 * If there are no aggregation queries defined in queries.json, the aggregate_percent value is also ignored. 
 * Aggregate operations will only generate activity if at least one query with "operation": "aggregate" is defined in your active JSON query files.
-* The maximum number of operations within a transaction is defined in the config file via `max_transaction_ops` or the env var `PERCONALOAD_MAX_TRANSACTION_OPS`. The number of operations per transaction will be randomized, with the max number being set as explained above. 
+* The maximum number of operations within a transaction is defined in the config file via `max_transaction_ops` or the env var `PLGM_MAX_TRANSACTION_OPS`. The number of operations per transaction will be randomized, with the max number being set as explained above. 
 * Multi-Collection Load: If multiple collections are defined in your collections_path, each worker will randomly select a collection for every operation. This includes operations within a transaction, allowing for cross-collection atomic updates.
 
 
