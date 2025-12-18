@@ -42,7 +42,8 @@ type workloadConfig struct {
 
 var InsertDocumentCache chan map[string]interface{}
 
-var operationTypes = []string{"find", "update", "delete", "insert", "aggregate", "transaction"}
+// base operation types for selection logic
+var operationTypes = []string{"find", "update", "delete", "insert", "insertMany", "aggregate", "transaction"}
 
 func selectOperation(percentages map[string]int, rng *rand.Rand) string {
 	if percentages == nil {
@@ -147,6 +148,19 @@ func generateInsertQuery(col config.CollectionDefinition, rng *rand.Rand, cfg *c
 	}
 }
 
+func generateInsertManyQuery(col config.CollectionDefinition, rng *rand.Rand, cfg *config.AppConfig) []interface{} {
+	count := cfg.InsertBatchSize
+	docs := make([]interface{}, count)
+	for i := 0; i < count; i++ {
+		select {
+		case docs[i] = <-InsertDocumentCache:
+		default:
+			docs[i] = workloads.GenerateDocument(col, cfg)
+		}
+	}
+	return docs
+}
+
 func insertDocumentProducer(ctx context.Context, col config.CollectionDefinition, cacheSize int, cfg *config.AppConfig) {
 	for {
 		select {
@@ -176,21 +190,24 @@ func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.
 	_, err = session.WithTransaction(ctx, func(sessCtx context.Context) (interface{}, error) {
 		numOps := rng.Intn(wCfg.appConfig.MaxTransactionOps) + 1
 		for i := 0; i < numOps; i++ {
-			// Select random collection for this step of the transaction
 			currentCol := wCfg.collections[rng.Intn(len(wCfg.collections))]
-
 			innerOp := selectOperation(wCfg.percentages, rng)
 			if innerOp == "aggregate" || innerOp == "transaction" {
 				innerOp = "find"
 			}
 
 			var q config.QueryDefinition
+			var insertManyDocs []interface{}
 			var run bool
 
-			if innerOp == "insert" {
+			switch innerOp {
+			case "insert":
 				q = generateInsertQuery(currentCol, rng, wCfg.appConfig)
 				run = true
-			} else {
+			case "insertMany":
+				insertManyDocs = generateInsertManyQuery(currentCol, rng, wCfg.appConfig)
+				run = true
+			default:
 				q, run = selectRandomQueryByType(sessCtx, wCfg.database, innerOp, wCfg.queryMap, currentCol, wCfg.debug, rng, wCfg.primaryFilterField, wCfg.appConfig)
 			}
 
@@ -198,11 +215,11 @@ func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.
 				continue
 			}
 
-			coll := wCfg.database.Collection(q.Collection)
+			coll := wCfg.database.Collection(currentCol.Name)
 			filter := cloneMap(q.Filter)
 			processRecursive(filter, rng)
 
-			switch q.Operation {
+			switch innerOp {
 			case "find":
 				cursor, err := coll.Find(sessCtx, filter, options.Find().SetLimit(1))
 				if err == nil {
@@ -216,10 +233,14 @@ func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.
 			case "updateMany":
 				opts := options.UpdateMany().SetUpsert(q.Upsert)
 				_, err = coll.UpdateMany(sessCtx, filter, q.Update, opts)
-			case "deleteOne", "deleteMany":
+			case "deleteOne":
 				_, err = coll.DeleteOne(sessCtx, filter)
+			case "deleteMany":
+				_, err = coll.DeleteMany(sessCtx, filter)
 			case "insert":
 				_, err = coll.InsertOne(sessCtx, q.Filter)
+			case "insertMany":
+				_, err = coll.InsertMany(sessCtx, insertManyDocs)
 			}
 
 			if err != nil {
@@ -250,9 +271,7 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 		default:
 		}
 
-		// Pick random collection for this operation
 		currentCol := wCfg.collections[rng.Intn(len(wCfg.collections))]
-
 		opType := selectOperation(wCfg.percentages, rng)
 
 		if opType == "transaction" {
@@ -264,11 +283,15 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 		}
 
 		var q config.QueryDefinition
+		var insertManyDocs []interface{}
 		var run bool
 
 		switch opType {
 		case "insert":
 			q = generateInsertQuery(currentCol, rng, wCfg.appConfig)
+			run = true
+		case "insertMany":
+			insertManyDocs = generateInsertManyQuery(currentCol, rng, wCfg.appConfig)
 			run = true
 		case "find", "updateOne", "updateMany", "deleteOne", "deleteMany", "aggregate":
 			q, run = selectRandomQueryByType(dbOpCtx, wCfg.database, opType, wCfg.queryMap, currentCol, wCfg.debug, rng, wCfg.primaryFilterField, wCfg.appConfig)
@@ -281,9 +304,7 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 			continue
 		}
 
-		db := wCfg.database
-		coll := db.Collection(q.Collection)
-
+		coll := wCfg.database.Collection(currentCol.Name)
 		var filter map[string]interface{}
 		var pipeline []interface{}
 
@@ -292,16 +313,16 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 				pipeline = cloned
 				processRecursive(pipeline, rng)
 			}
-		} else {
+		} else if opType != "insertMany" {
 			filter = cloneMap(q.Filter)
 			processRecursive(filter, rng)
 		}
 
 		start := time.Now()
 
-		switch q.Operation {
+		switch opType {
 		case "find":
-			limit := int64(q.Limit)
+			limit := q.Limit
 			if limit <= 0 {
 				limit = wCfg.findLimit
 			}
@@ -327,26 +348,28 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 				_ = cursor.Close(dbOpCtx)
 			}
 		case "updateOne":
-			// Use UpdateOne() for single document updates in v2
 			opts := options.UpdateOne().SetUpsert(q.Upsert)
 			_, err := coll.UpdateOne(dbOpCtx, filter, q.Update, opts)
 			if err != nil && wCfg.debug {
 				log.Printf("[Worker %d] UpdateOne error: %v", id, err)
 			}
 		case "updateMany":
-			// Use UpdateMany() for multiple document updates in v2
 			opts := options.UpdateMany().SetUpsert(q.Upsert)
 			_, err := coll.UpdateMany(dbOpCtx, filter, q.Update, opts)
 			if err != nil && wCfg.debug {
 				log.Printf("[Worker %d] UpdateMany error: %v", id, err)
 			}
-		case "deleteOne", "deleteMany":
+		case "deleteOne":
 			coll.DeleteOne(dbOpCtx, filter)
+		case "deleteMany":
+			coll.DeleteMany(dbOpCtx, filter)
 		case "insert":
 			coll.InsertOne(dbOpCtx, q.Filter)
+		case "insertMany":
+			coll.InsertMany(dbOpCtx, insertManyDocs)
 		}
 
-		wCfg.collector.Track(q.Operation, time.Since(start))
+		wCfg.collector.Track(opType, time.Since(start))
 	}
 }
 
@@ -436,6 +459,7 @@ func RunWorkload(ctx context.Context, db *mongo.Database, collections []config.C
 			"update":      cfg.UpdatePercent,
 			"delete":      cfg.DeletePercent,
 			"insert":      cfg.InsertPercent,
+			"insertMany":  cfg.BulkInsertPercent,
 			"aggregate":   cfg.AggregatePercent,
 			"transaction": cfg.TransactionPercent,
 		},
@@ -455,7 +479,6 @@ func runContinuousWorkload(ctx context.Context, wCfg workloadConfig) error {
 	workloadCtx, cancel := context.WithTimeout(ctx, wCfg.duration)
 	defer cancel()
 
-	// Handle initial document producer for multiple collections
 	for _, col := range wCfg.collections {
 		go insertDocumentProducer(workloadCtx, col, wCfg.maxInsertCache, wCfg.appConfig)
 	}
@@ -488,7 +511,7 @@ func runAllQueriesOnce(ctx context.Context, db *mongo.Database, queries []config
 	wg.Add(1)
 	go queryWorkerOnce(ctx, 1, tasks, &wg)
 	for i, q := range queries {
-		if q.Operation == "insert" {
+		if q.Operation == "insert" || q.Operation == "insertMany" {
 			continue
 		}
 		tasks <- &queryTask{

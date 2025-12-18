@@ -85,7 +85,8 @@ max_transaction_ops: 5
 find_percent: 50
 update_percent: 20
 delete_percent: 10
-insert_percent: 10
+insert_percent: 5
+bulk_insert_percent: 5
 aggregate_percent: 5
 transaction_percent: 5
 
@@ -104,6 +105,7 @@ use_findone_for_limit_one: true # Optimization: use FindOne() if limit is 1.
 
 # --- Write Operations ---
 insert_cache_size: 1000         # Size of the internal buffer for generated documents.
+insert_batch_size: 10           # Number of documents per InsertMany call
 
 # --- Monitoring ---
 status_refresh_rate_sec: 1      # How often (seconds) to print the "AVG Ops/Sec" log line.

@@ -117,9 +117,11 @@ Environment Variables (Overrides):
   PERCONALOAD_DELETE_PERCENT          % of ops that are DELETE
   PERCONALOAD_AGGREGATE_PERCENT       % of ops that are AGGREGATE
   PERCONALOAD_TRANSACTION_PERCENT     % of ops that are TRANSACTIONAL
+  PERCONALOAD_BULK_INSERT_PERCENT     % of ops that are BULK INSERTS
 
  [Performance Optimization]
   PERCONALOAD_FIND_BATCH_SIZE         Docs returned per cursor batch
+  PERCONALOAD_INSERT_BATCH_SIZE       Number of docs in batch bulk insert
   PERCONALOAD_FIND_LIMIT              Max docs per Find query
   PERCONALOAD_INSERT_CACHE_SIZE       Generator buffer size
   PERCONALOAD_OP_TIMEOUT_MS           Soft timeout per DB op (ms)
@@ -192,13 +194,15 @@ You can override any setting in `config.yaml` using environment variables. This 
 | `max_transaction_ops` | `PERCONALOAD_MAX_TRANSACTION_OPS` | Maximum number of operations to group into a single transaction block | `5` |
 | **Operation Ratios** | | (Must sum to ~100) | |
 | `find_percent` | `PERCONALOAD_FIND_PERCENT` | Percentage of Find operations | `50` |
-| `insert_percent` | `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `20` |
+| `insert_percent` | `PERCONALOAD_INSERT_PERCENT` | Percentage of Insert operations (this is not related to the initial seed inserts) | `10` |
+| `bulk_insert_percent ` | `PERCONALOAD_BULK_INSERT_PERCENT` | Percentage of Bulk Insert operations (this is not related to the initial seed inserts) | `10` |
 | `update_percent` | `PERCONALOAD_UPDATE_PERCENT` | Percentage of Update operations | `10` |
 | `delete_percent` | `PERCONALOAD_DELETE_PERCENT` | Percentage of Delete operations | `10` |
 | `aggregate_percent` | `PERCONALOAD_AGGREGATE_PERCENT` | Percentage of Aggregate operations | `5` |
 | `transaction_percent` | `PERCONALOAD_TRANSACTION_PERCENT` | Percentage of Transactional operations | `5` |
 | **Performance Optimization** | | | |
 | `find_batch_size` | `PERCONALOAD_FIND_BATCH_SIZE` | Documents returned per cursor batch | `100` |
+| `insert_batch_size` | `PERCONALOAD_INSERT_BATCH_SIZE` | Number of documents per insert batch | `100` |
 | `find_limit` | `PERCONALOAD_FIND_LIMIT` | Hard limit on documents per Find query | `10` |
 | `insert_cache_size` | `PERCONALOAD_INSERT_CACHE_SIZE` | Size of the document generation buffer | `1000` |
 | `op_timeout_ms` | `PERCONALOAD_OP_TIMEOUT_MS` | Soft timeout for individual DB operations (ms) | `500` |
@@ -380,7 +384,8 @@ By default, the tool comes preconfigured with the following workload distributio
 | Find	| 50% | 
 | Update	| 20% | 
 | Delete	| 10% | 
-| Insert	| 10% | 
+| Insert	| 5% | 
+| Bulk Inserts | 5% |
 | Aggregate	| 5% | 
 | Transaction	| 5% | 
 
@@ -389,7 +394,7 @@ You can modify any of the values above to run different types of workloads.
 Please note:
 
 * If `use_transactions: false`, the transaction_percent value is ignored.
-* If there are no aggregation queries defined in queries.json, the aggregate_percent value is also ignored.
+* If there are no aggregation queries defined in queries.json, the aggregate_percent value is also ignored. 
 * Aggregate operations will only generate activity if at least one query with "operation": "aggregate" is defined in your active JSON query files.
 * The maximum number of operations within a transaction is defined in the config file via `max_transaction_ops` or the env var `PERCONALOAD_MAX_TRANSACTION_OPS`. The number of operations per transaction will be randomized, with the max number being set as explained above. 
 * Multi-Collection Load: If multiple collections are defined in your collections_path, each worker will randomly select a collection for every operation. This includes operations within a transaction, allowing for cross-collection atomic updates.
@@ -418,12 +423,15 @@ These settings affect the efficiency of individual database operations and memor
 * **`find_batch_size`**: The number of documents returned per batch in a cursor.
     * *Tip:* Higher values reduce network round-trips but increase memory usage per worker.
     * *Default:* `10`
+* **`insert_batch_size`**: The number of documents to be inserted by bulk inserts.
+    * *Default:* `10`   
 * **`find_limit`**: The hard limit on documents returned for `find` operations.
     * *Default:* `5`
 * **`insert_cache_size`**: The buffer size for the document generator channel.
     * *Tip:* This decouples document generation from database insertion. A larger buffer ensures workers rarely wait for data generation logic.
     * *Default:* `1000`
-* **`Upserts`**: Any updateOne or updateMany operation in your query JSON files can include "upsert": true. This will cause MongoDB to create the document if no match is found for the filter.    
+* **`upserts`**: Any updateOne or updateMany operation in your query JSON files can include "upsert": true. This will cause MongoDB to create the document if no match is found for the filter.  
+
 
 #### Timeouts & Reliability
 Control how plgm reacts to network lag or database pressure.

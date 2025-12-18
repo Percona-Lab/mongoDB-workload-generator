@@ -68,9 +68,11 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_DELETE_PERCENT", "% of ops that are DELETE")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_AGGREGATE_PERCENT", "% of ops that are AGGREGATE")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_TRANSACTION_PERCENT", "% of ops that are TRANSACTIONAL")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_BULK_INSERT_PERCENT", "% of ops that are BULK INSERTS")
 
 		fmt.Fprintf(os.Stderr, "\n [Performance Optimization]\n")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_FIND_BATCH_SIZE", "Docs returned per cursor batch")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_INSERT_BATCH_SIZE", "Number of docs in batch bulk insert")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_FIND_LIMIT", "Max docs per Find query")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_INSERT_CACHE_SIZE", "Generator buffer size")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PERCONALOAD_OP_TIMEOUT_MS", "Soft timeout per DB op (ms)")

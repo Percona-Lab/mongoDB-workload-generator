@@ -28,6 +28,8 @@ type AppConfig struct {
 	InsertPercent      int    `yaml:"insert_percent"`
 	AggregatePercent   int    `yaml:"aggregate_percent"`
 	TransactionPercent int    `yaml:"transaction_percent"`
+	BulkInsertPercent  int    `yaml:"bulk_insert_percent"`
+	InsertBatchSize    int    `yaml:"insert_batch_size"`
 	UseTransactions    bool   `yaml:"use_transactions"`
 	MaxTransactionOps  int    `yaml:"max_transaction_ops"`
 	DebugMode          bool   `yaml:"debug_mode"`
@@ -81,6 +83,9 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 func applyDefaults(cfg *AppConfig) {
 	if cfg.FindBatchSize <= 0 {
 		cfg.FindBatchSize = 10
+	}
+	if cfg.InsertBatchSize <= 0 {
+		cfg.InsertBatchSize = 10
 	}
 	if cfg.FindLimit <= 0 {
 		cfg.FindLimit = 5
@@ -249,6 +254,16 @@ func applyEnvOverrides(cfg *AppConfig) {
 			cfg.StatusRefreshRateSec = n
 		}
 	}
+	if p := os.Getenv("PERCONALOAD_BULK_INSERT_PERCENT"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
+			cfg.BulkInsertPercent = n
+		}
+	}
+	if v := os.Getenv("PERCONALOAD_INSERT_BATCH_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.InsertBatchSize = n
+		}
+	}
 }
 
 func normalizePercentages(cfg *AppConfig) {
@@ -257,7 +272,7 @@ func normalizePercentages(cfg *AppConfig) {
 		cfg.TransactionPercent = 0
 	}
 
-	total := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent
+	total := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent + cfg.BulkInsertPercent
 	if total <= 0 {
 		cfg.FindPercent = 100
 		return
@@ -271,8 +286,9 @@ func normalizePercentages(cfg *AppConfig) {
 		cfg.InsertPercent = int(float64(cfg.InsertPercent) * factor)
 		cfg.AggregatePercent = int(float64(cfg.AggregatePercent) * factor)
 		cfg.TransactionPercent = int(float64(cfg.TransactionPercent) * factor)
+		cfg.BulkInsertPercent = int(float64(cfg.BulkInsertPercent) * factor)
 
-		finalTotal := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent
+		finalTotal := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent + cfg.BulkInsertPercent
 		if finalTotal != 100 {
 			cfg.FindPercent += (100 - finalTotal)
 		}
