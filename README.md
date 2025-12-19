@@ -45,7 +45,7 @@ If you are not cloning the repository, you will need to follow a few extra steps
 
 > **Tip:** The simplest approach is to clone the repository. This provides all the necessary files and structures, which you can then customize to your liking. (You will still need to download the correct release as mentioned in Step 1).
 
- C.  Once the steps above are complete, you can run `plgm`.
+3.  Once the steps above are complete, you can run `plgm`.
 
 ```bash
 # The extracted binary will have the OS suffix
