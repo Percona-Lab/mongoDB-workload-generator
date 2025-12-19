@@ -58,7 +58,7 @@ This project includes a `Makefile` to simplify building and packaging.
 
 ```bash
 git clone https://github.com/Percona-Lab/percona-load-generator-mongodb.git
-cd plgm
+cd percona-load-generator-mongodb
 go mod tidy
 
 # Build a binary for your CURRENT machine only (no .tar.gz)
