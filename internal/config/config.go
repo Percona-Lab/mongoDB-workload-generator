@@ -120,7 +120,6 @@ func applyEnvOverrides(cfg *AppConfig) {
 	}
 
 	// 2. Default Workload (Explicit Override)
-	// If the user sets this Env Var, it takes precedence over everything.
 	if v := os.Getenv("PLGM_DEFAULT_WORKLOAD"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			cfg.DefaultWorkload = b
@@ -141,9 +140,11 @@ func applyEnvOverrides(cfg *AppConfig) {
 			cfg.ConnectionParams.DirectConnection = b
 		}
 	}
-	if v, exists := os.LookupEnv("PLGM_REPLICA_SET"); exists {
+
+	if v, exists := os.LookupEnv("PLGM_REPLICASET_NAME"); exists {
 		cfg.ConnectionParams.ReplicaSetName = v
 	}
+
 	if v, exists := os.LookupEnv("PLGM_READ_PREFERENCE"); exists {
 		cfg.ConnectionParams.ReadPreference = v
 	}
@@ -268,7 +269,6 @@ func applyEnvOverrides(cfg *AppConfig) {
 }
 
 func normalizePercentages(cfg *AppConfig) {
-	// If transactions are disabled, ignore their percentage entirely
 	if !cfg.UseTransactions {
 		cfg.TransactionPercent = 0
 	}

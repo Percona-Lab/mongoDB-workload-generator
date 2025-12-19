@@ -45,7 +45,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_USERNAME", "Database User")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_PASSWORD", "Database Password (Recommended: Use Prompt)")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_DIRECT_CONNECTION", "Force direct connection (true/false)")
-		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_REPLICA_SET", "Replica Set name")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_REPLICASET_NAME", "Replica Set name")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_READ_PREFERENCE", "nearest")
 
 		fmt.Fprintf(os.Stderr, "\n [Workload Core]\n")

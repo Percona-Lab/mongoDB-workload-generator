@@ -15,7 +15,7 @@ connection_params:
   username: "root"
   auth_source: admin             # Database to authenticate against
   direct_connection: true        # Connect directly to the host (bypass topology discovery if single node)
-  replicaset_name: rs            # Required if connecting to a Replica Set
+  replicaset_name: rs            # Required if connecting to a Replica Set, set to "" if connecting to a sharded cluster
   read_preference: primary
   connection_timeout: 30         # Time (seconds) to wait for an initial connection
   server_selection_timeout: 15   # Time (seconds) to wait to find a suitable server for an op

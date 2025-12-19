@@ -94,7 +94,7 @@ Environment Variables (Overrides):
   PLGM_USERNAME                Database User
   PLGM_PASSWORD                Database Password (Recommended: Use Prompt)
   PLGM_DIRECT_CONNECTION       Force direct connection (true/false)
-  PLGM_REPLICA_SET             Replica Set name
+  PLGM_REPLICASET_NAME             Replica Set name
   PLGM_READ_PREFERENCE         nearest
 
  [Workload Core]
@@ -206,7 +206,7 @@ You can override any setting in `config.yaml` using environment variables. This 
 | **Connection** | | | |
 | `uri` | `PLGM_URI` | Target MongoDB connection URI | `mongodb://user:pass@host:27017` |
 | `direct_connection` | `PLGM_DIRECT_CONNECTION` | Force direct connection (bypass topology discovery) | `true` |
-| `replicaset_name` | `PLGM_REPLICA_SET` | Replica Set name (required for sharded clusters/RS) | `rs0` |
+| `replicaset_name` | `PLGM_REPLICASET_NAME` | Replica Set name (required for sharded clusters/RS) | `rs0` |
 | `read_preference` | `PLGM_READ_PREFERENCE` | By default, an application directs its read operations to the primary member in a replica set. You can specify a read preference to send read operations to secondaries. | `nearest` |
 | `username` | `PLGM_USERNAME` |	Database User | `admin` |
 | ***can not be set via config*** | `PLGM_PASSWORD` |	Database Password (if not set, plgm will prompt) | `password123` |
