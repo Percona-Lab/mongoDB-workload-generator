@@ -165,7 +165,7 @@ You can supply your own collections and queries using the `PLGM_COLLECTIONS_PATH
 plgm supports two loading modes:
 
 #### 1. Single File Mode
-If you point to a specific file, plgm will load **only** that file, regardless of its name.
+If you point to a specific file, plgm will load **only** that file, regardless of its name and will ignore the default workload setting.
 
 ```bash
 # Loads only my_custom_workload.json
@@ -173,7 +173,7 @@ export PLGM_COLLECTIONS_PATH="./resources/collections/my_custom_workload.json"
 ```
 
 #### 2. Directory Mode (Multi-file)
-If you point to a folder, plgm will scan and merge **all** `.json` files found in that folder. This allows you to split complex schemas across multiple files.
+If you point to a folder, plgm will scan and merge **all** `.json` files found in that folder. This allows you to split complex schemas across multiple files. The default workload will be ignored.
 
 ```bash
 # Loads all .json files in the /custom folder

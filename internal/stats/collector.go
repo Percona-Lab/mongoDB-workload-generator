@@ -313,17 +313,32 @@ func PrintConfiguration(appCfg *config.AppConfig, collections []config.Collectio
 	fmt.Fprintf(w, "  Duration:\t%s\n", appCfg.Duration)
 
 	// Feedback: Active Workload Mode
-	mode := "Custom (default.json excluded)"
-	if appCfg.DefaultWorkload {
-		mode = "Default (Only default.json)"
-		// Warning: Only show if user explicitly set PLGM_COLLECTIONS_PATH in env
-		// This avoids warning users who just run with default config.yaml
-		if os.Getenv("PLGM_COLLECTIONS_PATH") != "" {
-			mode += " [Warning: Ignoring other files in custom path!]"
+	// Check if the provided path is a single file or a directory
+	isSingleFile := false
+	if appCfg.CollectionsPath != "" {
+		info, err := os.Stat(appCfg.CollectionsPath)
+		if err == nil && !info.IsDir() {
+			isSingleFile = true
 		}
+	}
+
+	mode := "Custom (default.json excluded)"
+
+	if isSingleFile {
+		mode = "Explicit File (Default filtering ignored)"
 	} else {
-		if appCfg.CollectionsPath == "" {
-			mode = "Custom (No path provided?)"
+		// Directory or Empty Path Logic
+		if appCfg.DefaultWorkload {
+			mode = "Default (Only default.json)"
+			// Warning: Only show if user explicitly set PLGM_COLLECTIONS_PATH in env
+			// This avoids warning users who just run with default config.yaml
+			if os.Getenv("PLGM_COLLECTIONS_PATH") != "" {
+				mode += " [Warning: Ignoring other files in custom path!]"
+			}
+		} else {
+			if appCfg.CollectionsPath == "" {
+				mode = "Custom (No path provided?)"
+			}
 		}
 	}
 	fmt.Fprintf(w, "  Workload Mode:\t%s\n", mode)
