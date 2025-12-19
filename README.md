@@ -17,11 +17,11 @@ This tool is a complete refactor of the previous Python version, offering:
 
 ### 1. Installation
 
-**Option A: Download Release (Recommended)**
+**Option 1: Download Release**
 
 Navigate to the [Releases] page and download the .tar.gz file matching your operating system.
 
-1. Download and Extract:
+1. Download and Extract
 
 ```bash
 # Example for Linux
@@ -31,14 +31,28 @@ tar -xzvf plgm-linux-amd64.tar.gz
 tar -xzvf plgm-darwin-arm64.tar.gz
 ```
 
-2. Run:
+2. Create Resources
+
+If you are not cloning the repository, you will need to follow a few extra steps:
+
+ A.  Download the [config.yaml](./config.yaml).
+
+ B.  Modify the file so that it points to the location of your collection and query definitions.
+
+> **Note:** If you do not create a `default.json` file for your collection and query definitions, you **must** disable the default workload in `config.yaml` (set `default_workload: false`). Otherwise, `plgm` will attempt to load the default workload and fail when the file is not found.
+
+> **Note:** You can specify different locations for both collection and query definitions. Refer to the `config.yaml` file and the instructions below for more details.
+
+> **Tip:** The simplest approach is to clone the repository. This provides all the necessary files and structures, which you can then customize to your liking. (You will still need to download the correct release as mentioned in Step 1).
+
+ C.  Once the steps above are complete, you can run `plgm`.
 
 ```bash
 # The extracted binary will have the OS suffix
 ./plgm-linux-amd64 --version
 ```
 
-**Option B: Build from Source** (Requires Go 1.25+)
+**Option 2: Build from Source** (Requires Go 1.25+)
 
 This project includes a `Makefile` to simplify building and packaging.
 
