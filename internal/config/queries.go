@@ -24,13 +24,10 @@ type QueriesFile struct {
 	Queries []QueryDefinition
 }
 
-// LoadQueries loads files from a path.
-// If path is a folder:
-//   - If loadDefault is TRUE: Loads ALL .json files (including default.json).
-//   - If loadDefault is FALSE: Loads ALL .json files EXCEPT default.json.
-//
-// If path is a file:
-//   - Loads the file unconditionally.
+// LoadQueries filters files based on the 'loadDefault' flag.
+// - If loadDefault is TRUE: Load ONLY 'default.json'.
+// - If loadDefault is FALSE: Load ALL files EXCEPT 'default.json'.
+// - Single file paths are always loaded.
 func LoadQueries(path string, loadDefault bool) (*QueriesFile, error) {
 	if path == "" {
 		return &QueriesFile{}, nil
@@ -55,10 +52,16 @@ func LoadQueries(path string, loadDefault bool) (*QueriesFile, error) {
 
 			isDefault := strings.EqualFold(entry.Name(), "default.json")
 
-			// If default_workload is FALSE, we explicitly ignore 'default.json' in folder mode.
-			// If default_workload is TRUE, we load everything.
-			if !loadDefault && isDefault {
-				continue
+			if loadDefault {
+				// Mode: Default Workload -> Load ONLY default.json
+				if !isDefault {
+					continue
+				}
+			} else {
+				// Mode: Custom Workload -> Load EVERYTHING ELSE
+				if isDefault {
+					continue
+				}
 			}
 
 			fullPath := filepath.Join(path, entry.Name())

@@ -183,10 +183,9 @@ export PLGM_COLLECTIONS_PATH="./resources/custom_collections/"
 #### Default Workload Filtering
 When using **Directory Mode**, the behavior depends on the `PLGM_DEFAULT_WORKLOAD` setting:
 
-* **`true` (Default):** Loads **all** JSON files in the directory, including `default.json`.
+* **`true` (Default):** Loads **only** `default.json` (if present). It ignores all other files in the folder.
 * **`false` (Custom):** Loads all JSON files **except** `default.json`. 
-  * *Use Case:* You can keep the example `default.json` in your folder for reference but exclude it from your actual test run by setting `PLGM_DEFAULT_WORKLOAD=false`.
-
+  * *Use Case:* Set this to `false` to run your custom workload files while keeping `default.json` in the folder for reference (it will be ignored).
 
 ### 5. Docker & Kubernetes
 Prefer running in a container? We have a dedicated guide for building Docker images and running performance jobs directly inside Kubernetes (recommended for accurate network latency testing).

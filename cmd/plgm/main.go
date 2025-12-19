@@ -113,20 +113,16 @@ func main() {
 	}
 
 	// --- Secure Credentials Logic ---
-
-	// 1. Analyze the Base URI to see if it already has credentials
 	u, err := url.Parse(appCfg.URI)
 	if err != nil {
 		log.Fatalf("Invalid PLGM_URI: %v", err)
 	}
 	uriHasUser := u.User != nil && u.User.Username() != ""
 
-	// 2. Prompt for Username if missing (from both URI and Env/Config)
 	if !uriHasUser && appCfg.ConnectionParams.Username == "" {
 		fmt.Print("Enter MongoDB Username: ")
 		var inputUser string
 		if _, err := fmt.Scanln(&inputUser); err != nil {
-			// Handle case where user hits enter or pipe closes
 			if err.Error() != "unexpected newline" {
 				log.Fatal(err)
 			}
@@ -134,9 +130,6 @@ func main() {
 		appCfg.ConnectionParams.Username = inputUser
 	}
 
-	// 3. Prompt for Password if missing
-	// Logic: If we have a username defined in config/prompt (overriding whatever is in URI),
-	// and no password is set for it, we must prompt.
 	if appCfg.ConnectionParams.Username != "" && appCfg.ConnectionParams.Password == "" {
 		fmt.Printf("Enter Password for user '%s': ", appCfg.ConnectionParams.Username)
 		bytePassword, err := term.ReadPassword(int(os.Stdin.Fd()))
@@ -144,7 +137,7 @@ func main() {
 			log.Fatal("\nError reading password:", err)
 		}
 		appCfg.ConnectionParams.Password = string(bytePassword)
-		fmt.Println() // Print newline after input
+		fmt.Println()
 	}
 
 	// --- Load Collections ---
@@ -185,7 +178,6 @@ func main() {
 	}
 	queriesCfg.Queries = filteredQueries
 
-	// Determine DB name from first collection for the banner
 	dbName := collectionsCfg.Collections[0].DatabaseName
 
 	// -----------------------------------------------------------------------------------
@@ -201,7 +193,6 @@ func main() {
 	defer conn.Disconnect(ctx)
 
 	// --- Log Setup Details (Execution Phase) ---
-	// Now we print the logs, so they appear below the plan
 	logger.Info("Loaded %d collection definition(s)", len(collectionsCfg.Collections))
 	logger.Info("Loaded %d query templates(s)", len(queriesCfg.Queries))
 
@@ -218,11 +209,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// --- Seed documents (initial dataset) ---
+	// --- Seed documents ---
 	if !appCfg.SkipSeed {
 		if appCfg.DocumentsCount > 0 {
-			// NOTE: Logging is handled inside InsertRandomDocuments,
-			// but we can add a high-level log here if we want.
 			for _, col := range collectionsCfg.Collections {
 				if err := mongo.InsertRandomDocuments(ctx, conn.Database, col, appCfg.DocumentsCount, appCfg); err != nil {
 					log.Fatal(err)

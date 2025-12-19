@@ -177,6 +177,11 @@ func insertDocumentProducer(ctx context.Context, col config.CollectionDefinition
 	}
 }
 
+// Helper to get collection handle
+func getCollectionHandle(db *mongo.Database, col config.CollectionDefinition) *mongo.Collection {
+	return db.Client().Database(col.DatabaseName).Collection(col.Name)
+}
+
 func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.Rand) {
 	session, err := wCfg.database.Client().StartSession()
 	if err != nil {
@@ -215,7 +220,8 @@ func runTransaction(ctx context.Context, id int, wCfg workloadConfig, rng *rand.
 				continue
 			}
 
-			coll := wCfg.database.Collection(currentCol.Name)
+			coll := getCollectionHandle(wCfg.database, currentCol)
+
 			filter := cloneMap(q.Filter)
 			processRecursive(filter, rng)
 
@@ -304,7 +310,8 @@ func independentWorker(ctx context.Context, id int, wg *sync.WaitGroup, wCfg wor
 			continue
 		}
 
-		coll := wCfg.database.Collection(currentCol.Name)
+		coll := getCollectionHandle(wCfg.database, currentCol)
+
 		var filter map[string]interface{}
 		var pipeline []interface{}
 
@@ -532,7 +539,12 @@ func queryWorkerOnce(ctx context.Context, id int, tasks <-chan *queryTask, wg *s
 	dbOpCtx := context.Background()
 	for task := range tasks {
 		q := task.definition
-		coll := task.database.Collection(q.Collection)
+		coll := task.database.Client().Database(q.Database).Collection(q.Collection)
+		if q.Database == "" {
+			// Fallback if not specified in query
+			coll = task.database.Collection(q.Collection)
+		}
+
 		filter := cloneMap(q.Filter)
 		processRecursive(filter, task.rng)
 		switch q.Operation {

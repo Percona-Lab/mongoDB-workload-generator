@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -177,7 +178,6 @@ func (c *Collector) printInterval() {
 	elapsed := time.Since(c.startTime).Truncate(time.Second)
 	elapsedStr := fmt.Sprintf("%02d:%02d", int(elapsed.Minutes()), int(elapsed.Seconds())%60)
 
-	// Bold only the specific value in the "TOTAL OPS" column to maintain alignment
 	totalOpsFormatted := logger.BoldString(fmt.Sprintf("%10s", formatInt(int64(totalDelta))))
 
 	fmt.Printf(monitorLayout,
@@ -268,6 +268,28 @@ func formatInt(n int64) string {
 	}
 }
 
+// Helper to get active env vars dynamically
+func getOverriddenEnvVars() []string {
+	var overrides []string
+
+	// Dynamic: Iterate over all environment variables
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "PLGM_") {
+			parts := strings.SplitN(env, "=", 2)
+			key := parts[0]
+
+			// Filter out Password entirely
+			if key == "PLGM_PASSWORD" {
+				continue
+			}
+
+			overrides = append(overrides, env)
+		}
+	}
+	sort.Strings(overrides)
+	return overrides
+}
+
 func PrintConfiguration(appCfg *config.AppConfig, collections []config.CollectionDefinition, version string) {
 	fmt.Println()
 	fmt.Printf("  %s\n", logger.CyanString("plgm %s", version))
@@ -281,6 +303,7 @@ func PrintConfiguration(appCfg *config.AppConfig, collections []config.Collectio
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "  Target URI:\t%s\n", safeURI)
+
 	var namespaces []string
 	for _, col := range collections {
 		namespaces = append(namespaces, fmt.Sprintf("%s.%s", col.DatabaseName, col.Name))
@@ -288,7 +311,35 @@ func PrintConfiguration(appCfg *config.AppConfig, collections []config.Collectio
 	fmt.Fprintf(w, "  Namespaces:\t%s\n", strings.Join(namespaces, ", "))
 	fmt.Fprintf(w, "  Workers:\t%d active\n", appCfg.Concurrency)
 	fmt.Fprintf(w, "  Duration:\t%s\n", appCfg.Duration)
+
+	// Feedback: Active Workload Mode
+	mode := "Custom (default.json excluded)"
+	if appCfg.DefaultWorkload {
+		mode = "Default (Only default.json)"
+		// Warning: Only show if user explicitly set PLGM_COLLECTIONS_PATH in env
+		// This avoids warning users who just run with default config.yaml
+		if os.Getenv("PLGM_COLLECTIONS_PATH") != "" {
+			mode += " [Warning: Ignoring other files in custom path!]"
+		}
+	} else {
+		if appCfg.CollectionsPath == "" {
+			mode = "Custom (No path provided?)"
+		}
+	}
+	fmt.Fprintf(w, "  Workload Mode:\t%s\n", mode)
+
 	w.Flush()
+
+	// Feedback: Active Environment Overrides
+	overrides := getOverriddenEnvVars()
+	if len(overrides) > 0 {
+		fmt.Println()
+		fmt.Println(logger.BoldString("  ACTIVE OVERRIDES (Env)"))
+		for _, o := range overrides {
+			fmt.Printf("   -> %s\n", o)
+		}
+	}
+
 	fmt.Println()
 	fmt.Println(logger.BoldString("  WORKLOAD DEFINITION"))
 	fmt.Println(logger.CyanString("  --------------------------------------------------"))

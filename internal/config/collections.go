@@ -43,13 +43,10 @@ type CollectionsFile struct {
 	Collections []CollectionDefinition `json:"collections"`
 }
 
-// LoadCollections loads files from a path.
-// If path is a folder:
-//   - If loadDefault is TRUE: Loads ALL .json files (including default.json).
-//   - If loadDefault is FALSE: Loads ALL .json files EXCEPT default.json.
-//
-// If path is a file:
-//   - Loads the file unconditionally.
+// LoadCollections filters files based on the 'loadDefault' flag.
+// - If loadDefault is TRUE: Load ONLY 'default.json'.
+// - If loadDefault is FALSE: Load ALL files EXCEPT 'default.json'.
+// - Single file paths are always loaded.
 func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 	if path == "" {
 		return &CollectionsFile{}, nil
@@ -74,10 +71,16 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 
 			isDefault := strings.EqualFold(entry.Name(), "default.json")
 
-			// If default_workload is FALSE, we explicitly ignore 'default.json' in folder mode.
-			// If default_workload is TRUE, we load everything (no continue).
-			if !loadDefault && isDefault {
-				continue
+			if loadDefault {
+				// Mode: Default Workload -> Load ONLY default.json
+				if !isDefault {
+					continue
+				}
+			} else {
+				// Mode: Custom Workload -> Load EVERYTHING ELSE
+				if isDefault {
+					continue
+				}
 			}
 
 			fullPath := filepath.Join(path, entry.Name())
@@ -88,7 +91,7 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 			allCollections = append(allCollections, loaded.Collections...)
 		}
 	} else {
-		// Single file: Always load it if the user specifically pointed to it.
+		// Single file: Always load it (explicit user choice).
 		loaded, err := loadCollectionsFromFile(path)
 		if err != nil {
 			return nil, err

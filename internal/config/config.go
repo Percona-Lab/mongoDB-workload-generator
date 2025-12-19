@@ -111,17 +111,23 @@ func applyDefaults(cfg *AppConfig) {
 }
 
 func applyEnvOverrides(cfg *AppConfig) {
+	// 1. Credentials
 	if v := os.Getenv("PLGM_USERNAME"); v != "" {
 		cfg.ConnectionParams.Username = v
 	}
 	if v := os.Getenv("PLGM_PASSWORD"); v != "" {
 		cfg.ConnectionParams.Password = v
 	}
+
+	// 2. Default Workload (Explicit Override)
+	// If the user sets this Env Var, it takes precedence over everything.
 	if v := os.Getenv("PLGM_DEFAULT_WORKLOAD"); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			cfg.DefaultWorkload = b
 		}
 	}
+
+	// 3. Other Settings
 	if envDebug := os.Getenv("PLGM_DEBUG_MODE"); envDebug != "" {
 		if b, err := strconv.ParseBool(envDebug); err == nil {
 			cfg.DebugMode = b
@@ -142,17 +148,12 @@ func applyEnvOverrides(cfg *AppConfig) {
 		cfg.ConnectionParams.ReadPreference = v
 	}
 
-	customWorkloadEnv := false
+	// 4. Custom Paths
 	if envCollectionsPath := os.Getenv("PLGM_COLLECTIONS_PATH"); envCollectionsPath != "" {
 		cfg.CollectionsPath = envCollectionsPath
-		customWorkloadEnv = true
 	}
 	if envQueriesPath := os.Getenv("PLGM_QUERIES_PATH"); envQueriesPath != "" {
 		cfg.QueriesPath = envQueriesPath
-		customWorkloadEnv = true
-	}
-	if customWorkloadEnv {
-		cfg.DefaultWorkload = false
 	}
 
 	if envDrop := os.Getenv("PLGM_DROP_COLLECTIONS"); envDrop != "" {

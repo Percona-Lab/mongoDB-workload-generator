@@ -15,7 +15,7 @@ import (
 )
 
 func InsertRandomDocuments(ctx context.Context, db *mongo.Database, col config.CollectionDefinition, count int, cfg *config.AppConfig) error {
-	logger.Info("Seeding %d documents into '%s'...", count, col.Name)
+	logger.Info("Seeding %d documents into '%s.%s'...", count, col.DatabaseName, col.Name)
 	docs := make([]interface{}, count)
 
 	for i := 0; i < count; i++ {
@@ -23,9 +23,11 @@ func InsertRandomDocuments(ctx context.Context, db *mongo.Database, col config.C
 	}
 
 	if len(docs) > 0 {
-		_, err := db.Collection(col.Name).InsertMany(ctx, docs)
+		// Use database from definition
+		targetDB := db.Client().Database(col.DatabaseName)
+		_, err := targetDB.Collection(col.Name).InsertMany(ctx, docs)
 		if err != nil {
-			return fmt.Errorf("insert documents into %s: %w", col.Name, err)
+			return fmt.Errorf("insert documents into %s.%s: %w", col.DatabaseName, col.Name, err)
 		}
 	}
 	return nil
@@ -35,7 +37,7 @@ func InsertRandomDocuments(ctx context.Context, db *mongo.Database, col config.C
 func CreateCollectionsFromConfig(ctx context.Context, db *mongo.Database, cfg *config.CollectionsFile, drop bool) error {
 	adminDB := db.Client().Database("admin")
 
-	// 1. Check if the cluster is actually sharded, if the output has isdbgrid this means it is a sharded cluster)
+	// 1. Check if the cluster is actually sharded
 	var helloResult bson.M
 	isShardedCluster := false
 	if err := adminDB.RunCommand(ctx, bson.D{{Key: "hello", Value: 1}}).Decode(&helloResult); err == nil {
@@ -45,16 +47,18 @@ func CreateCollectionsFromConfig(ctx context.Context, db *mongo.Database, cfg *c
 	}
 
 	for _, col := range cfg.Collections {
+		// Derive database handle
+		targetDB := db.Client().Database(col.DatabaseName)
+
 		// 2. Drop if requested
 		if drop {
-			_ = db.Collection(col.Name).Drop(ctx)
+			_ = targetDB.Collection(col.Name).Drop(ctx)
 		}
 
 		// 3. Create Collection
-		// We only log if we actually create it or if it's significant
-		if err := db.CreateCollection(ctx, col.Name); err != nil {
+		if err := targetDB.CreateCollection(ctx, col.Name); err != nil {
 			if drop {
-				return fmt.Errorf("create collection %s: %w", col.Name, err)
+				return fmt.Errorf("create collection %s.%s: %w", col.DatabaseName, col.Name, err)
 			}
 		}
 
@@ -90,7 +94,9 @@ func CreateIndexesFromConfig(ctx context.Context, db *mongo.Database, cfg *confi
 		if len(col.Indexes) == 0 {
 			continue
 		}
-		collection := db.Collection(col.Name)
+
+		targetDB := db.Client().Database(col.DatabaseName)
+		collection := targetDB.Collection(col.Name)
 		models := make([]mongo.IndexModel, 0, len(col.Indexes))
 
 		for _, idx := range col.Indexes {
@@ -112,11 +118,10 @@ func CreateIndexesFromConfig(ctx context.Context, db *mongo.Database, cfg *confi
 		opts := options.CreateIndexes()
 
 		if _, err := collection.Indexes().CreateMany(ctxCreate, models, opts); err != nil {
-			return fmt.Errorf("create indexes on %s: %w", col.Name, err)
+			return fmt.Errorf("create indexes on %s.%s: %w", col.DatabaseName, col.Name, err)
 		}
 
-		// Consolidated Log:
-		logger.Info("Created %d indexes on '%s'", len(models), col.Name)
+		logger.Info("Created %d indexes on '%s.%s'", len(models), col.DatabaseName, col.Name)
 	}
 	return nil
 }
