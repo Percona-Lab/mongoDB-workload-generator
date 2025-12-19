@@ -38,13 +38,36 @@ func RandomValueWithFaker(def config.CollectionField, faker *gofakeit.Faker) int
 		method := fakerVal.MethodByName(methodName)
 
 		if method.IsValid() {
-			results := method.Call(nil)
-			if len(results) > 0 {
-				return results[0].Interface()
+			// Check argument count to prevent panics
+			numArgs := method.Type().NumIn()
+
+			if numArgs == 0 {
+				// e.g. Name(), Email() - No args required
+				results := method.Call(nil)
+				if len(results) > 0 {
+					return results[0].Interface()
+				}
+			} else if numArgs == 1 && method.Type().In(0).Kind() == reflect.Int {
+				// e.g. Sentence(wordCount) or Paragraph(paragraphCount)
+				// Smart logic: Use configuration constraints if available
+				argVal := 5 // Default fallback
+
+				if def.MaxLength > 0 {
+					argVal = def.MaxLength
+				} else if def.ArraySize > 0 {
+					argVal = def.ArraySize
+				}
+
+				results := method.Call([]reflect.Value{reflect.ValueOf(argVal)})
+				if len(results) > 0 {
+					return results[0].Interface()
+				}
 			}
+			// Note: Methods requiring >1 args or non-int args are skipped here
+			// and will fall through to the switch/default below.
 		}
 
-		// Fallback for special providers
+		// Fallback for special providers (handling cases reflection might miss or specific overrides)
 		switch strings.ToLower(def.Provider) {
 		case "uuid":
 			return faker.UUID()
@@ -91,7 +114,8 @@ func RandomValueWithFaker(def config.CollectionField, faker *gofakeit.Faker) int
 		if def.Provider == "" {
 			return fmt.Sprintf("str-%d", rng.Intn(100000))
 		}
-		return "val" // Should be handled by provider logic
+		// If provider was invalid or skipped in reflection, we land here.
+		return "val"
 
 	case "bool", "boolean":
 		return rng.Intn(2) == 0

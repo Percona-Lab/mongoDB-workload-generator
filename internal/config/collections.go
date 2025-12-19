@@ -43,7 +43,13 @@ type CollectionsFile struct {
 	Collections []CollectionDefinition `json:"collections"`
 }
 
-// LoadCollections filters files based on the 'loadDefault' flag (from DefaultWorkload config).
+// LoadCollections loads files from a path.
+// If path is a folder:
+//   - If loadDefault is TRUE: Loads ALL .json files (including default.json).
+//   - If loadDefault is FALSE: Loads ALL .json files EXCEPT default.json.
+//
+// If path is a file:
+//   - Loads the file unconditionally.
 func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 	if path == "" {
 		return &CollectionsFile{}, nil
@@ -67,11 +73,11 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 			}
 
 			isDefault := strings.EqualFold(entry.Name(), "default.json")
-			if loadDefault && !isDefault {
-				continue // Skip non-default files
-			}
+
+			// If default_workload is FALSE, we explicitly ignore 'default.json' in folder mode.
+			// If default_workload is TRUE, we load everything (no continue).
 			if !loadDefault && isDefault {
-				continue // Skip default file
+				continue
 			}
 
 			fullPath := filepath.Join(path, entry.Name())
@@ -82,25 +88,12 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 			allCollections = append(allCollections, loaded.Collections...)
 		}
 	} else {
-		// Single file: apply filtering logic to the specific file
-		filename := filepath.Base(path)
-		isDefault := strings.EqualFold(filename, "default.json")
-
-		shouldLoad := true
-		if loadDefault && !isDefault {
-			shouldLoad = false
+		// Single file: Always load it if the user specifically pointed to it.
+		loaded, err := loadCollectionsFromFile(path)
+		if err != nil {
+			return nil, err
 		}
-		if !loadDefault && isDefault {
-			shouldLoad = false
-		}
-
-		if shouldLoad {
-			loaded, err := loadCollectionsFromFile(path)
-			if err != nil {
-				return nil, err
-			}
-			allCollections = append(allCollections, loaded.Collections...)
-		}
+		allCollections = append(allCollections, loaded.Collections...)
 	}
 
 	return &CollectionsFile{Collections: allCollections}, nil

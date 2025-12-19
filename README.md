@@ -157,7 +157,38 @@ The additional collection and query definitions can be found here:
 * [collections](./resources/collections/)
 * [queries](./resources/queries/)
 
-### 4. Docker & Kubernetes
+
+### 4. Workload Configuration & Loading
+
+You can supply your own collections and queries using the `PLGM_COLLECTIONS_PATH` and `PLGM_QUERIES_PATH` environment variables (or the corresponding config file fields). 
+
+plgm supports two loading modes:
+
+#### 1. Single File Mode
+If you point to a specific file, plgm will load **only** that file, regardless of its name.
+
+```bash
+# Loads only my_custom_workload.json
+export PLGM_COLLECTIONS_PATH="./resources/collections/my_custom_workload.json"
+```
+
+#### 2. Directory Mode (Multi-file)
+If you point to a folder, plgm will scan and merge **all** `.json` files found in that folder. This allows you to split complex schemas across multiple files.
+
+```bash
+# Loads all .json files in the /custom folder
+export PLGM_COLLECTIONS_PATH="./resources/custom_collections/"
+```
+
+#### Default Workload Filtering
+When using **Directory Mode**, the behavior depends on the `PLGM_DEFAULT_WORKLOAD` setting:
+
+* **`true` (Default):** Loads **all** JSON files in the directory, including `default.json`.
+* **`false` (Custom):** Loads all JSON files **except** `default.json`. 
+  * *Use Case:* You can keep the example `default.json` in your folder for reference but exclude it from your actual test run by setting `PLGM_DEFAULT_WORKLOAD=false`.
+
+
+### 5. Docker & Kubernetes
 Prefer running in a container? We have a dedicated guide for building Docker images and running performance jobs directly inside Kubernetes (recommended for accurate network latency testing).
 
 [View the Docker & Kubernetes Guide](docker.md)
