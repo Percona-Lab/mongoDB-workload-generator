@@ -31,27 +31,6 @@ tar -xzvf plgm-linux-amd64.tar.gz
 tar -xzvf plgm-darwin-arm64.tar.gz
 ```
 
-2. Create Resources
-
-If you are not cloning the repository, you will need to follow a few extra steps:
-
- A.  Download the [config.yaml](./config.yaml).
-
- B.  Modify the file so that it points to the location of your collection and query definitions.
-
-> **Note:** If you do not create a `default.json` file for your collection and query definitions, you **must** disable the default workload in `config.yaml` (set `default_workload: false`). Otherwise, `plgm` will attempt to load the default workload and fail when the file is not found.
-
-> **Note:** You can specify different locations for both collection and query definitions. Refer to the `config.yaml` file and the instructions below for more details.
-
-> **Tip:** The simplest approach is to clone the repository. This provides all the necessary files and structures, which you can then customize to your liking. (You will still need to download the correct release as mentioned in Step 1).
-
-3.  Once the steps above are complete, you can run `plgm`.
-
-```bash
-# The extracted binary will have the OS suffix
-./plgm-linux-amd64 --version
-```
-
 **Option 2: Build from Source** (Requires Go 1.25+)
 
 This project includes a `Makefile` to simplify building and packaging.
@@ -68,9 +47,42 @@ make build-local
 ./bin/plgm --help
 ```
 
+### 2. Configuration & Resources
+
+To run the application, you need a configuration file. Depending on whether you want to run the built-in test or your own custom workload, you may also need to create resource folders.
+
+**Step A: Get the Config**
+
+Download the [`config.yaml`](./config.yaml) and adjust the `uri` to point to your MongoDB instance.
+
+**Step B: Choose Your Workload**
+
+* **Mode 1: Default Workload (Easiest)**
+    
+    By default (`default_workload: true` in `config.yaml`), the application uses the embedded collection and query definitions. You do **not** need to create any extra folders or files.
+
+* **Mode 2: Custom Workload**
+    
+    To run your own stress tests, you must set `default_workload: false` in `config.yaml` and provide the necessary files:
+
+    1.  **Create Directories**: Create folders for your definitions (e.g., `resources/collections` and `resources/queries`).
+    2.  **Add Files**: Place your JSON schema and query definitions inside these folders.
+    3.  **Update Config**: Ensure `collections_path` and `queries_path` in your `config.yaml` point to these new directories.
+
+    > **Important:** If you are running in Custom Mode, the application expects these folders to exist. If the folders are missing, `plgm` will revert to the embedded defaults to prevent a crash, but your custom test **will not run** until the files are in place.
+
+### 3. Run
+
+Once configured, run the application:
+
+```bash
+# The extracted binary will have the OS suffix
+./plgm-linux-amd64
+```
+
 **Cross-Compilation (Build for different OS)**
 
-If you are preparing binaries for other users (or other servers), use the main build command. This will compile binaries for Linux and Mac and automatically package them into .tar.gz files in the bin/ folder.
+If you are preparing binaries for other users (or other servers), use the main build command. This will compile binaries for Linux and Mac and automatically package them into .tar.gz files in the `bin/` folder.
 
 ```bash
 # Generate all release packages
@@ -81,6 +93,7 @@ make build
 # bin/plgm-darwin-amd64.tar.gz
 # bin/plgm-darwin-arm64.tar.gz
 ```
+
 
 ### Usage
 

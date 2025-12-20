@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Percona-Lab/percona-load-generator-mongodb/resources"
 )
 
 type CollectionField struct {
@@ -43,6 +45,8 @@ type CollectionsFile struct {
 	Collections []CollectionDefinition `json:"collections"`
 }
 
+// LoadCollections attempts to load from disk. If the path is not found,
+// it falls back to the embedded default.json.
 // LoadCollections filters files based on the 'loadDefault' flag.
 // - If loadDefault is TRUE: Load ONLY 'default.json'.
 // - If loadDefault is FALSE: Load ALL files EXCEPT 'default.json'.
@@ -51,13 +55,23 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 	if path == "" {
 		return &CollectionsFile{}, nil
 	}
+
+	// 1. Try to access the folder on disk
 	info, err := os.Stat(path)
+
+	// 2. Fallback Logic: If folder/file not found, use Embedded Default
+	if os.IsNotExist(err) {
+		fmt.Printf("Warning: Collections path '%s' not found. Using embedded default.json.\n", path)
+		return loadEmbeddedCollection("collections/default.json")
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("stat path %s: %w", path, err)
 	}
 
 	var allCollections []CollectionDefinition
 
+	// 3. Normal Disk Loading Logic
 	if info.IsDir() {
 		entries, err := os.ReadDir(path)
 		if err != nil {
@@ -72,12 +86,10 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 			isDefault := strings.EqualFold(entry.Name(), "default.json")
 
 			if loadDefault {
-				// Mode: Default Workload -> Load ONLY default.json
 				if !isDefault {
 					continue
 				}
 			} else {
-				// Mode: Custom Workload -> Load EVERYTHING ELSE
 				if isDefault {
 					continue
 				}
@@ -91,7 +103,7 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 			allCollections = append(allCollections, loaded.Collections...)
 		}
 	} else {
-		// Single file: Always load it (explicit user choice).
+		// Single file path provided by user
 		loaded, err := loadCollectionsFromFile(path)
 		if err != nil {
 			return nil, err
@@ -102,12 +114,25 @@ func LoadCollections(path string, loadDefault bool) (*CollectionsFile, error) {
 	return &CollectionsFile{Collections: allCollections}, nil
 }
 
+// loadEmbeddedCollection reads a specific file from the embedded FS
+func loadEmbeddedCollection(embedPath string) (*CollectionsFile, error) {
+	b, err := resources.Defaults.ReadFile(embedPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read embedded file %s: %w", embedPath, err)
+	}
+	return parseCollectionsBytes(b)
+}
+
 func loadCollectionsFromFile(path string) (*CollectionsFile, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read collections file: %w", err)
 	}
+	return parseCollectionsBytes(b)
+}
 
+// Common parsing logic for both Disk and Embed
+func parseCollectionsBytes(b []byte) (*CollectionsFile, error) {
 	var wrapped CollectionsFile
 	if err := json.Unmarshal(b, &wrapped); err == nil && len(wrapped.Collections) > 0 {
 		return &wrapped, nil
@@ -118,5 +143,5 @@ func loadCollectionsFromFile(path string) (*CollectionsFile, error) {
 		return &CollectionsFile{Collections: arr}, nil
 	}
 
-	return nil, fmt.Errorf("invalid collections format in %s", path)
+	return nil, fmt.Errorf("invalid collections format")
 }

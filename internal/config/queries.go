@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Percona-Lab/percona-load-generator-mongodb/resources"
 )
 
 type QueryDefinition struct {
@@ -32,13 +34,23 @@ func LoadQueries(path string, loadDefault bool) (*QueriesFile, error) {
 	if path == "" {
 		return &QueriesFile{}, nil
 	}
+
+	// 1. Try to access the folder on disk
 	info, err := os.Stat(path)
+
+	// 2. Fallback Logic
+	if os.IsNotExist(err) {
+		fmt.Printf("Warning: Queries path '%s' not found. Using embedded default.json.\n", path)
+		return loadEmbeddedQuery("queries/default.json")
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("stat path %s: %w", path, err)
 	}
 
 	var allQueries []QueryDefinition
 
+	// 3. Normal Disk Loading Logic
 	if info.IsDir() {
 		entries, err := os.ReadDir(path)
 		if err != nil {
@@ -53,12 +65,10 @@ func LoadQueries(path string, loadDefault bool) (*QueriesFile, error) {
 			isDefault := strings.EqualFold(entry.Name(), "default.json")
 
 			if loadDefault {
-				// Mode: Default Workload -> Load ONLY default.json
 				if !isDefault {
 					continue
 				}
 			} else {
-				// Mode: Custom Workload -> Load EVERYTHING ELSE
 				if isDefault {
 					continue
 				}
@@ -72,7 +82,6 @@ func LoadQueries(path string, loadDefault bool) (*QueriesFile, error) {
 			allQueries = append(allQueries, loaded.Queries...)
 		}
 	} else {
-		// Single file: Always load it.
 		loaded, err := loadQueriesFromFile(path)
 		if err != nil {
 			return nil, err
@@ -81,6 +90,20 @@ func LoadQueries(path string, loadDefault bool) (*QueriesFile, error) {
 	}
 
 	return &QueriesFile{Queries: allQueries}, nil
+}
+
+// loadEmbeddedQuery reads from embedded FS
+func loadEmbeddedQuery(embedPath string) (*QueriesFile, error) {
+	b, err := resources.Defaults.ReadFile(embedPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read embedded file %s: %w", embedPath, err)
+	}
+
+	var defs []QueryDefinition
+	if err := json.Unmarshal(b, &defs); err != nil {
+		return nil, fmt.Errorf("invalid JSON format for embedded queries: %w", err)
+	}
+	return &QueriesFile{Queries: defs}, nil
 }
 
 func loadQueriesFromFile(path string) (*QueriesFile, error) {
