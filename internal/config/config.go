@@ -30,6 +30,7 @@ type AppConfig struct {
 	TransactionPercent int    `yaml:"transaction_percent"`
 	BulkInsertPercent  int    `yaml:"bulk_insert_percent"`
 	InsertBatchSize    int    `yaml:"insert_batch_size"`
+	SeedBatchSize      int    `yaml:"seed_batch_size"`
 	UseTransactions    bool   `yaml:"use_transactions"`
 	MaxTransactionOps  int    `yaml:"max_transaction_ops"`
 	DebugMode          bool   `yaml:"debug_mode"`
@@ -90,6 +91,10 @@ func applyDefaults(cfg *AppConfig) {
 	}
 	if cfg.InsertBatchSize <= 0 {
 		cfg.InsertBatchSize = 10
+	}
+	// Default to 1000 for fast seeding
+	if cfg.SeedBatchSize <= 0 {
+		cfg.SeedBatchSize = 1000
 	}
 	if cfg.FindLimit <= 0 {
 		cfg.FindLimit = 5
@@ -282,6 +287,11 @@ func applyEnvOverrides(cfg *AppConfig) map[string]bool {
 	if v := os.Getenv("PLGM_INSERT_BATCH_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.InsertBatchSize = n
+		}
+	}
+	if v := os.Getenv("PLGM_SEED_BATCH_SIZE"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.SeedBatchSize = n
 		}
 	}
 

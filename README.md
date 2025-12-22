@@ -117,44 +117,45 @@ Flags:
 
 Environment Variables (Overrides):
  [Connection]
-  PLGM_URI                     Connection URI
-  PLGM_USERNAME                Database User
-  PLGM_PASSWORD                Database Password (Recommended: Use Prompt)
-  PLGM_DIRECT_CONNECTION       Force direct connection (true/false)
-  PLGM_REPLICASET_NAME             Replica Set name
-  PLGM_READ_PREFERENCE         nearest
+  PLGM_URI                            Connection URI
+  PLGM_USERNAME                       Database User
+  PLGM_PASSWORD                       Database Password (Recommended: Use Prompt)
+  PLGM_DIRECT_CONNECTION              Force direct connection (true/false)
+  PLGM_REPLICASET_NAME                Replica Set name
+  PLGM_READ_PREFERENCE                nearest
 
  [Workload Core]
-  PLGM_DEFAULT_WORKLOAD        Use built-in workload (true/false)
-  PLGM_COLLECTIONS_PATH        Path to collection JSON
-  PLGM_QUERIES_PATH            Path to query JSON
-  PLGM_DURATION                Test duration (e.g. 60s, 5m)
-  PLGM_CONCURRENCY             Number of active workers
-  PLGM_DOCUMENTS_COUNT         Initial seed document count
-  PLGM_DROP_COLLECTIONS        Drop collections on start (true/false)
-  PLGM_SKIP_SEED               Do not seed initial data on start (true/false)
-  PLGM_DEBUG_MODE              Enable verbose logic logs (true/false)
-  PLGM_USE_TRANSACTIONS        Enable transactional workloads (true/false)
-  PLGM_MAX_TRANSACTION_OPS     Maximum number of operations to group into a single transaction block
+  PLGM_DEFAULT_WORKLOAD               Use built-in workload (true/false)
+  PLGM_COLLECTIONS_PATH               Path to collection JSON
+  PLGM_QUERIES_PATH                   Path to query JSON
+  PLGM_DURATION                       Test duration (e.g. 60s, 5m)
+  PLGM_CONCURRENCY                    Number of active workers
+  PLGM_DOCUMENTS_COUNT                Initial seed document count
+  PLGM_DROP_COLLECTIONS               Drop collections on start (true/false)
+  PLGM_SKIP_SEED                      Do not seed initial data on start (true/false)
+  PLGM_SEED_BATCH_SIZE                Number of documents to insert per batch during SEED phase
+  PLGM_DEBUG_MODE                     Enable verbose logic logs (true/false)
+  PLGM_USE_TRANSACTIONS               Enable transactional workloads (true/false)
+  PLGM_MAX_TRANSACTION_OPS            Maximum number of operations to group into a single transaction block
 
  [Operation Ratios] (Must sum to ~100)
-  PLGM_FIND_PERCENT            % of ops that are FIND
-  PLGM_UPDATE_PERCENT          % of ops that are UPDATE
-  PLGM_INSERT_PERCENT          % of ops that are INSERT
-  PLGM_DELETE_PERCENT          % of ops that are DELETE
-  PLGM_AGGREGATE_PERCENT       % of ops that are AGGREGATE
-  PLGM_TRANSACTION_PERCENT     % of ops that are TRANSACTIONAL
-  PLGM_BULK_INSERT_PERCENT     % of ops that are BULK INSERTS
+  PLGM_FIND_PERCENT                   % of ops that are FIND
+  PLGM_UPDATE_PERCENT                 % of ops that are UPDATE
+  PLGM_INSERT_PERCENT                 % of ops that are INSERT
+  PLGM_DELETE_PERCENT                 % of ops that are DELETE
+  PLGM_AGGREGATE_PERCENT              % of ops that are AGGREGATE
+  PLGM_TRANSACTION_PERCENT            % of ops that are TRANSACTIONAL
+  PLGM_BULK_INSERT_PERCENT            % of ops that are BULK INSERTS
 
  [Performance Optimization]
-  PLGM_FIND_BATCH_SIZE         Docs returned per cursor batch
-  PLGM_INSERT_BATCH_SIZE       Number of docs in batch bulk insert
-  PLGM_FIND_LIMIT              Max docs per Find query
-  PLGM_INSERT_CACHE_SIZE       Generator buffer size
-  PLGM_OP_TIMEOUT_MS           Soft timeout per DB op (ms)
-  PLGM_RETRY_ATTEMPTS          Retry attempts for failures
-  PLGM_RETRY_BACKOFF_MS        Wait time between retries (ms)
-  PLGM_STATUS_REFRESH_RATE_SEC Status report interval (sec)
+  PLGM_FIND_BATCH_SIZE                Docs returned per cursor batch
+  PLGM_INSERT_BATCH_SIZE              Number of docs in batch bulk insert
+  PLGM_FIND_LIMIT                     Max docs per Find query
+  PLGM_INSERT_CACHE_SIZE              Generator buffer size
+  PLGM_OP_TIMEOUT_MS                  Soft timeout per DB op (ms)
+  PLGM_RETRY_ATTEMPTS                 Retry attempts for failures
+  PLGM_RETRY_BACKOFF_MS               Wait time between retries (ms)
+  PLGM_STATUS_REFRESH_RATE_SEC        Status report interval (sec)
   GOMAXPROCS                          Go Runtime CPU limit
 ```
 
@@ -246,6 +247,7 @@ You can override any setting in `config.yaml` using environment variables. This 
 | `documents_count` | `PLGM_DOCUMENTS_COUNT` | Number of documents to seed initially | `10000` |
 | `drop_collections` | `PLGM_DROP_COLLECTIONS` | Drop collections before starting (`true`/`false`) | `true` |
 | `skip_seed` | `PLGM_SKIP_SEED` | Do not seed initial data on start (`true`/`false`) | `true` |
+| `seed_batch_size` | `PLGM_SEED_BATCH_SIZE` | Number of documents to insert per batch during SEED phase | `1000` |
 | `debug_mode` | `PLGM_DEBUG_MODE` | Enable verbose debug logging (`true`/`false`) | `false` |
 | `use_transactions` | `PLGM_USE_TRANSACTIONS` | Enable Transactional Workloads (`true`/`false`) | `false` |
 | `max_transaction_ops` | `PLGM_MAX_TRANSACTION_OPS` | Maximum number of operations to group into a single transaction block | `5` |
@@ -482,6 +484,9 @@ These settings affect the efficiency of individual database operations and memor
     * *Default:* `10`
 * **`insert_batch_size`**: The number of documents to be inserted by bulk inserts.
     * *Default:* `10`   
+* **`seed_batch_size`**: The number of documents grouped into a single InsertMany call during the initial data seeding phase.
+    * *Tip:* Keeps memory usage stable when seeding millions of documents. A value of 1000 is recommended for performance.
+    * *Default:* `1000`
 * **`find_limit`**: The hard limit on documents returned for `find` operations.
     * *Default:* `5`
 * **`insert_cache_size`**: The buffer size for the document generator channel.

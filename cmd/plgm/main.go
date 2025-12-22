@@ -57,6 +57,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_DOCUMENTS_COUNT", "Initial seed document count")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_DROP_COLLECTIONS", "Drop collections on start (true/false)")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_SKIP_SEED", "Do not seed initial data on start (true/false)")
+		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_SEED_BATCH_SIZE", "Number of documents to insert per batch during SEED phase")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_DEBUG_MODE", "Enable verbose logic logs (true/false)")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_USE_TRANSACTIONS", "Enable transactional workloads (true/false)")
 		fmt.Fprintf(os.Stderr, "  %-35s %s\n", "PLGM_MAX_TRANSACTION_OPS", "Maximum number of operations to group into a single transaction block")

@@ -62,7 +62,7 @@ drop_collections: false
 skip_seed: true
 
 # Number of documents to insert during the initialization "Seed" phase.
-documents_count: 1000
+documents_count: 100000
 
 # Number of concurrent "Active Workers" to spawn.
 # Higher = more load, provided the client CPU/Network can handle it.
@@ -105,7 +105,8 @@ use_findone_for_limit_one: true # Optimization: use FindOne() if limit is 1.
 
 # --- Write Operations ---
 insert_cache_size: 1000         # Size of the internal buffer for generated documents.
-insert_batch_size: 10           # Number of documents per InsertMany call
+insert_batch_size: 10           # Number of documents per InsertMany call during WORKLOAD phase.
+seed_batch_size: 1000           # Number of documents per InsertMany call during SEED phase.
 
 # --- Monitoring ---
 status_refresh_rate_sec: 1      # How often (seconds) to print the "AVG Ops/Sec" log line.

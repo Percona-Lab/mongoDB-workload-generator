@@ -16,20 +16,65 @@ import (
 
 func InsertRandomDocuments(ctx context.Context, db *mongo.Database, col config.CollectionDefinition, count int, cfg *config.AppConfig) error {
 	logger.Info("Seeding %d documents into '%s.%s'...", count, col.DatabaseName, col.Name)
-	docs := make([]interface{}, count)
+
+	// 1. Configure Batch Size
+	batchSize := cfg.SeedBatchSize
+	if batchSize <= 0 {
+		batchSize = 1000
+	}
+
+	// 2. Configure Progress Reporting
+	// Calculate 10% interval
+	modu := int(float32(count) * 0.1)
+	if modu < 1 {
+		modu = 1
+	}
+	nextLogTarget := modu
+
+	logger.Debug("Inserting documents in batches of %d", batchSize)
+	logger.Debug("Progress reporting every %d documents", modu)
+
+	targetDB := db.Client().Database(col.DatabaseName)
+	collection := targetDB.Collection(col.Name)
+
+	// Pre-allocate batch slice
+	batch := make([]interface{}, 0, batchSize)
+	totalInserted := 0
 
 	for i := 0; i < count; i++ {
-		docs[i] = workloads.GenerateDocument(col, cfg)
-	}
+		// Generate document
+		batch = append(batch, workloads.GenerateDocument(col, cfg))
 
-	if len(docs) > 0 {
-		// Use database from definition
-		targetDB := db.Client().Database(col.DatabaseName)
-		_, err := targetDB.Collection(col.Name).InsertMany(ctx, docs)
-		if err != nil {
-			return fmt.Errorf("insert documents into %s.%s: %w", col.DatabaseName, col.Name, err)
+		// If batch is full, InsertMany
+		if len(batch) >= batchSize {
+			if _, err := collection.InsertMany(ctx, batch); err != nil {
+				return fmt.Errorf("insert batch into %s.%s: %w", col.DatabaseName, col.Name, err)
+			}
+
+			totalInserted += len(batch)
+			batch = batch[:0] // Reset batch, keep capacity
+
+			// Check if we crossed the 10% threshold
+			if totalInserted >= nextLogTarget {
+				logger.Info("-- Inserted %d documents...", totalInserted)
+				// Advance target to next 10% marker
+				for totalInserted >= nextLogTarget {
+					nextLogTarget += modu
+				}
+			}
 		}
 	}
+
+	// Insert any remaining documents
+	if len(batch) > 0 {
+		if _, err := collection.InsertMany(ctx, batch); err != nil {
+			return fmt.Errorf("insert remaining documents into %s.%s: %w", col.DatabaseName, col.Name, err)
+		}
+		totalInserted += len(batch)
+		logger.Info("-- Inserted %d documents (Final)...", totalInserted)
+	}
+
+	logger.Debug("Document generation and seeding complete")
 	return nil
 }
 

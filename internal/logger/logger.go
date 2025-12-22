@@ -54,3 +54,11 @@ func Header(msg string) {
 func Section(msg string) {
 	fmt.Printf("\n  %s %s\n", GreenString(">"), msg)
 }
+
+// Debug prints a formatted debug message with the [DEBUG] tag in Purple.
+func Debug(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	// Indent multiline messages to align with the text
+	msg = strings.ReplaceAll(msg, "\n", "\n          ")
+	fmt.Printf("  %s %s%s\n", Purple+"[DEBUG]"+Reset, msg, Reset)
+}
