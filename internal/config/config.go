@@ -73,8 +73,12 @@ func LoadAppConfig(path string) (*AppConfig, error) {
 		return nil, fmt.Errorf("invalid YAML format for config: %w", err)
 	}
 
-	applyEnvOverrides(cfg)
-	normalizePercentages(cfg)
+	// Apply overrides and capture which percentage fields were set
+	overriddenStats := applyEnvOverrides(cfg)
+
+	// Normalize based on what was overridden
+	normalizePercentages(cfg, overriddenStats)
+
 	applyDefaults(cfg)
 
 	return cfg, nil
@@ -110,7 +114,12 @@ func applyDefaults(cfg *AppConfig) {
 	}
 }
 
-func applyEnvOverrides(cfg *AppConfig) {
+// applyEnvOverrides updates the config from ENV vars and returns a map
+// of percentage fields that were explicitly set.
+func applyEnvOverrides(cfg *AppConfig) map[string]bool {
+	// Track which percentages are overridden
+	overrides := make(map[string]bool)
+
 	// 1. Credentials
 	if v := os.Getenv("PLGM_USERNAME"); v != "" {
 		cfg.ConnectionParams.Username = v
@@ -190,34 +199,48 @@ func applyEnvOverrides(cfg *AppConfig) {
 	if envDuration := os.Getenv("PLGM_DURATION"); envDuration != "" {
 		cfg.Duration = envDuration
 	}
+
+	// Percentages - we track these to prioritize them in normalization
 	if p := os.Getenv("PLGM_FIND_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.FindPercent = n
+			overrides["FindPercent"] = true
 		}
 	}
 	if p := os.Getenv("PLGM_UPDATE_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.UpdatePercent = n
+			overrides["UpdatePercent"] = true
 		}
 	}
 	if p := os.Getenv("PLGM_DELETE_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.DeletePercent = n
+			overrides["DeletePercent"] = true
 		}
 	}
 	if p := os.Getenv("PLGM_INSERT_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.InsertPercent = n
+			overrides["InsertPercent"] = true
 		}
 	}
 	if p := os.Getenv("PLGM_AGGREGATE_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.AggregatePercent = n
+			overrides["AggregatePercent"] = true
 		}
 	}
 	if p := os.Getenv("PLGM_TRANSACTION_PERCENT"); p != "" {
 		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
 			cfg.TransactionPercent = n
+			overrides["TransactionPercent"] = true
+		}
+	}
+	if p := os.Getenv("PLGM_BULK_INSERT_PERCENT"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
+			cfg.BulkInsertPercent = n
+			overrides["BulkInsertPercent"] = true
 		}
 	}
 
@@ -256,42 +279,165 @@ func applyEnvOverrides(cfg *AppConfig) {
 			cfg.StatusRefreshRateSec = n
 		}
 	}
-	if p := os.Getenv("PLGM_BULK_INSERT_PERCENT"); p != "" {
-		if n, err := strconv.Atoi(p); err == nil && n >= 0 {
-			cfg.BulkInsertPercent = n
-		}
-	}
 	if v := os.Getenv("PLGM_INSERT_BATCH_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.InsertBatchSize = n
 		}
 	}
+
+	return overrides
 }
 
-func normalizePercentages(cfg *AppConfig) {
+func normalizePercentages(cfg *AppConfig, pinned map[string]bool) {
+	// 1. Enforce Transaction flag constraint immediately
 	if !cfg.UseTransactions {
 		cfg.TransactionPercent = 0
+		delete(pinned, "TransactionPercent")
 	}
 
-	total := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent + cfg.BulkInsertPercent
-	if total <= 0 {
-		cfg.FindPercent = 100
-		return
+	// 2. Calculate the total of "pinned" (Environment overridden) stats
+	pinnedTotal := 0
+	if pinned["FindPercent"] {
+		pinnedTotal += cfg.FindPercent
+	}
+	if pinned["UpdatePercent"] {
+		pinnedTotal += cfg.UpdatePercent
+	}
+	if pinned["DeletePercent"] {
+		pinnedTotal += cfg.DeletePercent
+	}
+	if pinned["InsertPercent"] {
+		pinnedTotal += cfg.InsertPercent
+	}
+	if pinned["AggregatePercent"] {
+		pinnedTotal += cfg.AggregatePercent
+	}
+	if pinned["TransactionPercent"] {
+		pinnedTotal += cfg.TransactionPercent
+	}
+	if pinned["BulkInsertPercent"] {
+		pinnedTotal += cfg.BulkInsertPercent
 	}
 
-	if total != 100 {
-		factor := 100.0 / float64(total)
-		cfg.FindPercent = int(float64(cfg.FindPercent) * factor)
-		cfg.UpdatePercent = int(float64(cfg.UpdatePercent) * factor)
-		cfg.DeletePercent = int(float64(cfg.DeletePercent) * factor)
-		cfg.InsertPercent = int(float64(cfg.InsertPercent) * factor)
-		cfg.AggregatePercent = int(float64(cfg.AggregatePercent) * factor)
-		cfg.TransactionPercent = int(float64(cfg.TransactionPercent) * factor)
-		cfg.BulkInsertPercent = int(float64(cfg.BulkInsertPercent) * factor)
+	// 3. Logic:
+	//    If Pinned Total >= 100: Zero out non-pinned, scale pinned if > 100.
+	//    If Pinned Total < 100:  Distribute remainder among unpinned.
 
-		finalTotal := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent + cfg.BulkInsertPercent
-		if finalTotal != 100 {
-			cfg.FindPercent += (100 - finalTotal)
+	if pinnedTotal >= 100 {
+		// Zero out all non-pinned fields
+		if !pinned["FindPercent"] {
+			cfg.FindPercent = 0
 		}
+		if !pinned["UpdatePercent"] {
+			cfg.UpdatePercent = 0
+		}
+		if !pinned["DeletePercent"] {
+			cfg.DeletePercent = 0
+		}
+		if !pinned["InsertPercent"] {
+			cfg.InsertPercent = 0
+		}
+		if !pinned["AggregatePercent"] {
+			cfg.AggregatePercent = 0
+		}
+		if !pinned["TransactionPercent"] {
+			cfg.TransactionPercent = 0
+		}
+		if !pinned["BulkInsertPercent"] {
+			cfg.BulkInsertPercent = 0
+		}
+
+		// Normalize if pinned values sum > 100
+		if pinnedTotal > 100 {
+			factor := 100.0 / float64(pinnedTotal)
+			if pinned["FindPercent"] {
+				cfg.FindPercent = int(float64(cfg.FindPercent) * factor)
+			}
+			if pinned["UpdatePercent"] {
+				cfg.UpdatePercent = int(float64(cfg.UpdatePercent) * factor)
+			}
+			if pinned["DeletePercent"] {
+				cfg.DeletePercent = int(float64(cfg.DeletePercent) * factor)
+			}
+			if pinned["InsertPercent"] {
+				cfg.InsertPercent = int(float64(cfg.InsertPercent) * factor)
+			}
+			if pinned["AggregatePercent"] {
+				cfg.AggregatePercent = int(float64(cfg.AggregatePercent) * factor)
+			}
+			if pinned["TransactionPercent"] {
+				cfg.TransactionPercent = int(float64(cfg.TransactionPercent) * factor)
+			}
+			if pinned["BulkInsertPercent"] {
+				cfg.BulkInsertPercent = int(float64(cfg.BulkInsertPercent) * factor)
+			}
+		}
+
+	} else {
+		// pinnedTotal < 100. We have space left.
+		remaining := 100 - pinnedTotal
+
+		// Sum of unpinned (default) values
+		unpinnedTotal := 0
+		if !pinned["FindPercent"] {
+			unpinnedTotal += cfg.FindPercent
+		}
+		if !pinned["UpdatePercent"] {
+			unpinnedTotal += cfg.UpdatePercent
+		}
+		if !pinned["DeletePercent"] {
+			unpinnedTotal += cfg.DeletePercent
+		}
+		if !pinned["InsertPercent"] {
+			unpinnedTotal += cfg.InsertPercent
+		}
+		if !pinned["AggregatePercent"] {
+			unpinnedTotal += cfg.AggregatePercent
+		}
+		if !pinned["TransactionPercent"] {
+			unpinnedTotal += cfg.TransactionPercent
+		}
+		if !pinned["BulkInsertPercent"] {
+			unpinnedTotal += cfg.BulkInsertPercent
+		}
+
+		// Scale unpinned values to fill the remaining space
+		if unpinnedTotal > 0 {
+			factor := float64(remaining) / float64(unpinnedTotal)
+
+			if !pinned["FindPercent"] {
+				cfg.FindPercent = int(float64(cfg.FindPercent) * factor)
+			}
+			if !pinned["UpdatePercent"] {
+				cfg.UpdatePercent = int(float64(cfg.UpdatePercent) * factor)
+			}
+			if !pinned["DeletePercent"] {
+				cfg.DeletePercent = int(float64(cfg.DeletePercent) * factor)
+			}
+			if !pinned["InsertPercent"] {
+				cfg.InsertPercent = int(float64(cfg.InsertPercent) * factor)
+			}
+			if !pinned["AggregatePercent"] {
+				cfg.AggregatePercent = int(float64(cfg.AggregatePercent) * factor)
+			}
+			if !pinned["TransactionPercent"] {
+				cfg.TransactionPercent = int(float64(cfg.TransactionPercent) * factor)
+			}
+			if !pinned["BulkInsertPercent"] {
+				cfg.BulkInsertPercent = int(float64(cfg.BulkInsertPercent) * factor)
+			}
+		} else {
+			// Edge case: Pinned values sum to < 100 (e.g. 80%), but all unpinned defaults are 0.
+			// We cannot distribute the remaining 20% proportionally among 0s.
+			// Strategy: Assign the remainder to FindPercent (Selects) to ensure the workload sums to 100%.
+			cfg.FindPercent += remaining
+		}
+	}
+
+	// 4. Final check: Ensure total is exactly 100 (fixing integer rounding errors)
+	finalTotal := cfg.FindPercent + cfg.UpdatePercent + cfg.DeletePercent + cfg.InsertPercent + cfg.AggregatePercent + cfg.TransactionPercent + cfg.BulkInsertPercent
+	if finalTotal != 100 {
+		// Add/Subtract difference to FindPercent (simplest safety net)
+		cfg.FindPercent += (100 - finalTotal)
 	}
 }
